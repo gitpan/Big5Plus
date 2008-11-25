@@ -1,0 +1,196 @@
+@rem = '--*-Perl-*--
+@echo off
+if "%OS%" == "Windows_NT" goto WinNT
+perl -x -S "%0" %1 %2 %3 %4 %5 %6 %7 %8 %9
+goto endofperl
+:WinNT
+perl -x -S "%0" %*
+if NOT "%COMSPEC%" == "%SystemRoot%\system32\cmd.exe" goto endofperl
+if %errorlevel% == 9009 echo You do not have Perl in your PATH.
+exit /b %errorlevel%
+goto endofperl
+@rem ';
+#!perl
+#line 15
+$VERSION = "1.0.0"; undef @rem;
+######################################################################
+#
+# perl58 -  execute perlscript on the perl5.8 without %PATH% settings
+#
+# Copyright (c) 2008 INABA Hitoshi <ina@cpan.org>
+#
+######################################################################
+
+# print usage
+unless (@ARGV) {
+    die <<END;
+
+$0 ver.$VERSION
+
+usage:
+
+C:\\>$0 perlscript.pl ...
+
+Find perl5.8 order by,
+  1st, C:\\Perl58\\bin\\perl.exe
+  2nd, D:\\Perl58\\bin\\perl.exe
+  3rd, E:\\Perl58\\bin\\perl.exe
+                :
+                :
+
+When found it, then execute perlscript on the its perl.exe.
+
+END
+}
+
+# quote by "" if include space
+for (@ARGV) {
+    $_ = qq{"$_"} if / /;
+}
+
+# if this script running under perl5.8
+if ($] =~ /^5\.008/) {
+    exit system($^X, @ARGV);
+}
+
+# get drive list by 'net share' command
+# Windows NT, Windows 2000, Windows XP, Windows Server 2003, Windows Vista
+# maybe also Windows Server 2008
+@harddrive = ();
+while (`net share 2>NUL` =~ /\b([A-Z])\$ +\1:\\ +Default share\b/ig) {
+    push @harddrive, $1;
+}
+
+# if no drive
+# Windows 95, Windows 98, Windows Me
+unless (@harddrive) {
+    eval q{
+        #----------------------------------------------------------------------
+        # Win32::API module (This part is Perl5)
+        #----------------------------------------------------------------------
+        use Win32::API;
+        $GetDriveType = Win32::API->new('Kernel32', 'GetDriveType', [P], N);
+        for $drive ('C'..'Z') {
+            # 0 DRIVE_UNKNOWN
+            # 1 DRIVE_NO_ROOT_DIR
+            # 2 DRIVE_REMOVABLE
+            # 3 DRIVE_FIXED
+            # 4 DRIVE_REMOTE
+            # 5 DRIVE_CDROM
+            # 6 DRIVE_RAMDISK
+            if ($GetDriveType->Call("$drive:\\") =~ /^(3|4|6)$/) {
+                push @harddrive, $drive;
+            }
+        }
+        #----------------------------------------------------------------------
+    };
+}
+
+# no drive yet
+unless (@harddrive) {
+    @harddrive = ('C'..'Z');
+}
+
+# find perl5.8 in the computer
+@drive = ();
+for $drive (sort @harddrive) {
+    if (-e "$drive:\\perl58\\bin\\perl.exe") {
+        push @drive, $drive;
+    }
+}
+
+# perl5.8 not found
+if (@drive == 0) {
+    die "perl58: nothing \\Perl58\\bin\\perl.exe nowhere.\n";
+}
+
+# only one perl5.8 found
+elsif (@drive == 1) {
+
+    # execute perlscript on the its perl.exe.
+    exit system("$drive[0]:\\perl58\\bin\\perl.exe", @ARGV);
+}
+
+# if many perl5.8 found
+elsif (@drive > 1) {
+
+    # select one perl.exe
+    print STDERR "This computer has many perl.exe.\n";
+    for $drive (@drive) {
+        print STDERR "$drive:\\perl58\\bin\\perl.exe\n";
+    }
+    while (1) {
+        print STDERR "Which perl.exe do you use? (exit by [Ctrl]+[C])";
+        $drive = <STDIN>;
+        $drive = substr($drive,0,1);
+        if (grep(/^$drive$/i,@drive)) {
+
+            # execute perlscript on the perl5.8
+            exit system("$drive:\\perl58\\bin\\perl.exe", @ARGV);
+        }
+    }
+}
+
+__END__
+
+=pod
+
+=head1 NAME
+
+perl58 - execute perlscript on the perl5.8 without %PATH% settings
+
+=head1 SYNOPSIS
+
+B<perl58> [perlscript.pl]
+
+=head1 DESCRIPTION
+
+This program is useful when perl5.5 and perl5.8 are used on the one computer.
+Set perl5.5's bin directory to environment variable %PATH%, do not set perl5.8's
+bin directory to %PATH%.
+
+It is necessary to install perl5.8 in "\Perl58\bin" directory of the drive of
+either. This program is executed by perl5.5, and find the perl5.8 and execute it.
+
+ Find perl5.8 order by,
+   1st, C:\Perl58\bin\perl.exe
+   2nd, D:\Perl58\bin\perl.exe
+   3rd, E:\Perl58\bin\perl.exe
+                 :
+                 :
+
+When found it, then execute perlscript on the its perl.exe.
+
+=head1 EXAMPLES
+
+    C:\> perl58 foo.pl
+    [..execute foo.pl by perl5.8..]
+
+=head1 BUGS AND LIMITATIONS
+
+Please patches and report problems to author are welcome.
+
+=head1 AUTHOR
+
+INABA Hitoshi E<lt>ina@cpan.orgE<gt>
+
+This project was originated by INABA Hitoshi.
+For any questions, use E<lt>ina@cpan.orgE<gt> so we can share
+this file.
+
+=head1 LICENSE AND COPYRIGHT
+
+This software is free software; you can redistribute it and/or
+modify it under the same terms as Perl itself. See L<perlartistic>.
+
+This software is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+=head1 SEE ALSO
+
+perl
+
+=cut
+
+:endofperl
