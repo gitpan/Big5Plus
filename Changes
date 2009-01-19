@@ -128,3 +128,16 @@ Revision history for Perl extension Sjis.
 	- remove \G from $your_gap
 	; created by INABA Hitoshi
 
+0.30  2009/01/04 00:00:00
+	- support context when calling lc(), lc, uc(), uc.
+	- support chr(0x5C) ended path on MSWin32.
+	  - file test operators.
+	  - functions lstat(), opendir(), stat() and unlink().
+	  - glob() and <WILDCARD>.
+	- remove pl2ebat.bat, jperl55.bat, jperl58.bat and jperl510.bat.
+	- merge esjis.pl into Sjis.pm.
+	- matched variables $1,$2,$3,... after s/// came to function as it was a description.
+	- support function of chr, ord and reverse again.
+	- add test filetest, pathdir, pathfile and perlmemo.
+	; created at kanmi-kissa Hahaso in Chichibu.
+

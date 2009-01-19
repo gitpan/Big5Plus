@@ -1,6 +1,6 @@
 NAME
 
-       Big5Plus - Source code filter for Big5Plus script
+       Big5Plus - "Yet Another JPerl" Source code filter for Big5Plus script
 
 SYNOPSIS
 
@@ -10,19 +10,13 @@ SYNOPSIS
 
     At command prompt:
 
-      without "use Big5Plus;" in your script
-        jperl55.bat   yourscript.pl  param1  param2 ...
-        jperl58.bat   yourscript.pl  param1  param2 ...
-        jperl510.bat  yourscript.pl  param1  param2 ...
-
-      with "use Big5Plus;" in your script
-        perl.exe     yourscript.pl  param1  param2 ...
-        perl58.bat   yourscript.pl  param1  param2 ...
-        perl510.bat  yourscript.pl  param1  param2 ...
+      perl.exe     yourscript.pl  param1  param2 ...
+      perl58.bat   yourscript.pl  param1  param2 ...
+      perl510.bat  yourscript.pl  param1  param2 ...
 
 DESCRIPTION
 
-      This software is "JPerl" written by Perl.
+      This software is "Yet Another JPerl" written by Perl.
       We can write the script in Big5Plus again.
 
       This is software that does the bridge from JPerl to Perl of the
@@ -50,11 +44,7 @@ MAKE OTHER
 PROGRAM COMPOSITION
 
    Big5Plus.pm  --- source code filter for Big5Plus script
-   ebig5plus.pl --- source code filter to escape Big5Plus
-   EBig5Plus.pm --- run-time routines for ebig5plus.pl
-   jperl55.bat  --- jperl emulator by perl5.5  with esjis.pl
-   jperl58.bat  --- jperl emulator by perl5.8  with esjis.pl
-   jperl510.bat --- jperl emulator by perl5.10 with esjis.pl
+   EBig5Plus.pm --- run-time routines for Big5Plus.pm
    perl58.bat   --- find and run perl5.8  without %PATH% settings
    perl510.bat  --- find and run perl5.10 without %PATH% settings
 

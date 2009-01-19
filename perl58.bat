@@ -12,14 +12,16 @@ goto endofperl
 @rem ';
 #!perl
 #line 15
-$VERSION = "1.0.0"; undef @rem;
+my $VERSION = "1.0.1"; undef @rem;
 ######################################################################
 #
 # perl58 -  execute perlscript on the perl5.8 without %PATH% settings
 #
-# Copyright (c) 2008 INABA Hitoshi <ina@cpan.org>
+# Copyright (c) 2008, 2009 INABA Hitoshi <ina@cpan.org>
 #
 ######################################################################
+
+use strict;
 
 # print usage
 unless (@ARGV) {
@@ -44,89 +46,94 @@ END
 }
 
 # quote by "" if include space
-for (@ARGV) {
-    $_ = qq{"$_"} if / /;
-}
+@ARGV = map { / / ? qq{"$_"} : $_ } @ARGV;
 
 # if this script running under perl5.8
 if ($] =~ /^5\.008/) {
     exit system($^X, @ARGV);
 }
 
-# get drive list by 'net share' command
-# Windows NT, Windows 2000, Windows XP, Windows Server 2003, Windows Vista
-# maybe also Windows Server 2008
-@harddrive = ();
-while (`net share 2>NUL` =~ /\b([A-Z])\$ +\1:\\ +Default share\b/ig) {
-    push @harddrive, $1;
-}
-
-# if no drive
-# Windows 95, Windows 98, Windows Me
-unless (@harddrive) {
-    eval q{
-        #----------------------------------------------------------------------
-        # Win32::API module (This part is Perl5)
-        #----------------------------------------------------------------------
-        use Win32::API;
-        $GetDriveType = Win32::API->new('Kernel32', 'GetDriveType', [P], N);
-        for $drive ('C'..'Z') {
-            # 0 DRIVE_UNKNOWN
-            # 1 DRIVE_NO_ROOT_DIR
-            # 2 DRIVE_REMOVABLE
-            # 3 DRIVE_FIXED
-            # 4 DRIVE_REMOTE
-            # 5 DRIVE_CDROM
-            # 6 DRIVE_RAMDISK
-            if ($GetDriveType->Call("$drive:\\") =~ /^(3|4|6)$/) {
-                push @harddrive, $drive;
-            }
-        }
-        #----------------------------------------------------------------------
-    };
-}
-
-# no drive yet
-unless (@harddrive) {
-    @harddrive = ('C'..'Z');
+# if .conf file exists
+if (open(CONF,"$0.conf")) {
+    my $perlbin = <CONF>;
+    close CONF;
+    if (-e $perlbin) {
+        exit system($perlbin, @ARGV);
+    }
 }
 
 # find perl5.8 in the computer
-@drive = ();
-for $drive (sort @harddrive) {
-    if (-e "$drive:\\perl58\\bin\\perl.exe") {
-        push @drive, $drive;
+my @perlbin = ();
+eval <<'END';
+use Win32API::File qw(:DRIVE_);
+
+Win32API::File::GetLogicalDriveStrings(4*26+1, my $LogicalDriveStrings);
+for my $driveroot (split /\0/, $LogicalDriveStrings) {
+    my $type = Win32API::File::GetDriveType($driveroot);
+    # 0 DRIVE_UNKNOWN
+    # 1 DRIVE_NO_ROOT_DIR
+    # 2 DRIVE_REMOVABLE
+    # 3 DRIVE_FIXED
+    # 4 DRIVE_REMOTE
+    # 5 DRIVE_CDROM
+    # 6 DRIVE_RAMDISK
+    if (($type == DRIVE_FIXED)  or
+        ($type == DRIVE_REMOTE) or
+        ($type == DRIVE_RAMDISK)
+    ) {
+        if (-e "${driveroot}perl58\\bin\\perl.exe") {
+            push @perlbin, "${driveroot}perl58\\bin\\perl.exe";
+        }
+    }
+}
+END
+
+# get drive list by 'net share' command
+# Windows NT, Windows 2000, Windows XP, Windows Server 2003, Windows Vista
+# maybe also Windows Server 2008
+if ($@) {
+    while (`net share 2>NUL` =~ /\b([A-Z])\$ +\1:\\ +Default share\b/ig) {
+        if (-e "$1:\\perl58\\bin\\perl.exe") {
+            push @perlbin, "$1:\\perl58\\bin\\perl.exe";
+        }
     }
 }
 
 # perl5.8 not found
-if (@drive == 0) {
-    die "perl58: nothing \\Perl58\\bin\\perl.exe nowhere.\n";
+if (@perlbin == 0) {
+    die "$0: nothing \\Perl58\\bin\\perl.exe nowhere.\n";
 }
 
 # only one perl5.8 found
-elsif (@drive == 1) {
+elsif (@perlbin == 1) {
 
     # execute perlscript on the its perl.exe.
-    exit system("$drive[0]:\\perl58\\bin\\perl.exe", @ARGV);
+    if (open(CONF,">$0.conf")) {
+        print CONF $perlbin[0];
+        close CONF;
+    }
+    exit system($perlbin[0], @ARGV);
 }
 
 # if many perl5.8 found
-elsif (@drive > 1) {
+elsif (@perlbin > 1) {
 
     # select one perl.exe
     print STDERR "This computer has many perl.exe.\n";
-    for $drive (@drive) {
-        print STDERR "$drive:\\perl58\\bin\\perl.exe\n";
-    }
+    print STDERR map {"$_\n"} @perlbin;
+    print STDERR "Which perl.exe do you use? (exit by [Ctrl]+[C])";
     while (1) {
-        print STDERR "Which perl.exe do you use? (exit by [Ctrl]+[C])";
-        $drive = <STDIN>;
+        print STDERR "drive = ";
+        my $drive = <STDIN>;
         $drive = substr($drive,0,1);
-        if (grep(/^$drive$/i,@drive)) {
+        if (my($perlbin) = grep /^$drive/i, @perlbin) {
 
-            # execute perlscript on the perl5.8
-            exit system("$drive:\\perl58\\bin\\perl.exe", @ARGV);
+            # execute perlscript on the its perl.exe.
+            if (open(CONF,">$0.conf")) {
+                print CONF $perlbin;
+                close CONF;
+            }
+            exit system($perlbin, @ARGV);
         }
     }
 }
@@ -145,7 +152,7 @@ B<perl58> [perlscript.pl]
 
 =head1 DESCRIPTION
 
-This program is useful when perl5.5 and perl5.8 are used on the one computer.
+This program is useful when perl5.5 and perl5.8 are on the one computer.
 Set perl5.5's bin directory to environment variable %PATH%, do not set perl5.8's
 bin directory to %PATH%.
 
