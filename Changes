@@ -141,3 +141,9 @@ Revision history for Perl extension Sjis.
 	- add test filetest, pathdir, pathfile and perlmemo.
 	; created at kanmi-kissa Hahaso in Chichibu.
 
+0.31  2009/01/29 00:00:00
+	- create test data file on execute test.pl.
+	- require run-time module version.
+	- rewrite all about "split" logic.
+	; created by INABA Hitoshi
+
