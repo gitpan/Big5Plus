@@ -12,7 +12,7 @@ use 5.00503;
 use Ebig5plus;
 use vars qw($VERSION);
 
-$VERSION = sprintf '%d.%02d', q$Revision: 0.31 $ =~ m/(\d+)/oxmsg;
+$VERSION = sprintf '%d.%02d', q$Revision: 0.32 $ =~ m/(\d+)/oxmsg;
 
 use Carp qw(carp croak confess cluck verbose);
 
@@ -316,7 +316,7 @@ sub escape {
 
 # variable or function
     #                  $ @ % & *     $#
-    elsif (/\G ( (?: [\$\@\%\&\*] | \$\# | -> | \b sub \b) \s* (?: split|chop|index|rindex|lc|uc|chr|ord|reverse|tr|y|q|qq|qx|qw|m|s|qr|glob|lstat|opendir|stat|unlink) ) \b /oxmsgc) {
+    elsif (/\G ( (?: [\$\@\%\&\*] | \$\# | -> | \b sub \b) \s* (?: split|chop|index|rindex|lc|uc|chr|ord|reverse|tr|y|q|qq|qx|qw|m|s|qr|glob|lstat|opendir|stat|unlink|chdir) ) \b /oxmsgc) {
         $slash = 'div';
         return $1;
     }
@@ -380,6 +380,7 @@ sub escape {
     elsif (m{\G \b opendir (\s* \( \s*) (?=[A-Za-z_])         }oxgc) { $slash = 'm//'; return   "Ebig5plus::opendir$1*";   }
     elsif (m{\G \b opendir (\s+)        (?=[A-Za-z_])         }oxgc) { $slash = 'm//'; return   "Ebig5plus::opendir$1*";   }
     elsif (m{\G \b unlink \b  (?! \s* => )                    }oxgc) { $slash = 'm//'; return   'Ebig5plus::unlink';       }
+    elsif (m{\G \b chdir \b   (?! \s* => )                    }oxgc) { $slash = 'm//'; return   'Ebig5plus::chdir';        }
 
 # split
     elsif (m{\G \b (split) \b (?! \s* => ) }oxgc) {
@@ -1014,6 +1015,28 @@ sub escape {
         }
     }
 
+# do ''
+    elsif (/\G \b (do) \s* ' ((?:$your_char)+?) ' /oxgc) {
+        my $path = $2;
+        if (MSWin32_5Cended_path($path)) {
+            return qq{do '$path.'};
+        }
+        else {
+            return qq{do '$path'};
+        }
+    }
+
+# require ''
+    elsif (/\G \b (require) \s* ' ((?:$your_char)+?) ' /oxgc) {
+        my $path = $2;
+        if (MSWin32_5Cended_path($path)) {
+            return qq{require '$path.'};
+        }
+        else {
+            return qq{require '$path'};
+        }
+    }
+
 # ''
     elsif (/\G (?<![\w\$\@\%\&\*]) (\') /oxgc) {
         my $q_string = '';
@@ -1024,6 +1047,28 @@ sub escape {
             elsif (/\G ($q_char) /oxgc)            { $q_string .= $1;                   }
         }
         croak "$__FILE__: Can't find string terminator anywhere before EOF";
+    }
+
+# do ""
+    elsif (/\G \b (do) \s* " ((?:$your_char)+?) " /oxgc) {
+        my $path = $2;
+        if (MSWin32_5Cended_path($path)) {
+            return qq{do "$path."};
+        }
+        else {
+            return qq{do "$path"};
+        }
+    }
+
+# require ""
+    elsif (/\G \b (require) \s* " ((?:$your_char)+?) " /oxgc) {
+        my $path = $2;
+        if (MSWin32_5Cended_path($path)) {
+            return qq{require "$path."};
+        }
+        else {
+            return qq{require "$path"};
+        }
     }
 
 # ""
@@ -1286,7 +1331,7 @@ E_STRING_LOOP:
 
 # variable or function
         #                             $ @ % & *     $#
-        elsif ($string =~ /\G ( (?: [\$\@\%\&\*] | \$\# | -> | \b sub \b) \s* (?: split|chop|index|rindex|lc|uc|chr|ord|reverse|tr|y|q|qq|qx|qw|m|s|qr|glob|lstat|opendir|stat|unlink) ) \b /oxmsgc) {
+        elsif ($string =~ /\G ( (?: [\$\@\%\&\*] | \$\# | -> | \b sub \b) \s* (?: split|chop|index|rindex|lc|uc|chr|ord|reverse|tr|y|q|qq|qx|qw|m|s|qr|glob|lstat|opendir|stat|unlink|chdir) ) \b /oxmsgc) {
             $e_string .= $1;
             $slash = 'div';
         }
@@ -1323,6 +1368,7 @@ E_STRING_LOOP:
         elsif ($string =~ m{\G \b opendir (\s* \( \s*) (?=[A-Za-z_])         }oxgc) { $e_string .=   "Ebig5plus::opendir$1*";    $slash = 'm//'; }
         elsif ($string =~ m{\G \b opendir (\s+)        (?=[A-Za-z_])         }oxgc) { $e_string .=   "Ebig5plus::opendir$1*";    $slash = 'm//'; }
         elsif ($string =~ m{\G \b unlink \b                                  }oxgc) { $e_string .=   'Ebig5plus::unlink';        $slash = 'm//'; }
+        elsif ($string =~ m{\G \b chdir \b                                   }oxgc) { $e_string .=   'Ebig5plus::chdir';         $slash = 'm//'; }
 
 # split
         elsif ($string =~ m{\G \b (split) \b (?! \s* => ) }oxgc) {
@@ -3966,6 +4012,22 @@ sub charlist_not_qr {
     }
 }
 
+#
+# Big5Plus chr(0x5C) ended path on MSWin32
+#
+sub MSWin32_5Cended_path {
+
+    if ((@_ >= 1) and ($_[0] ne '')) {
+        if ($^O =~ /\A (?: MSWin32 | NetWare | symbian | dos ) \z/oxms) {
+            my @char = $_[0] =~ /\G ([\x81-\xFE][\x00-\xFF] | [\x00-\xFF]) /oxmsg;
+            if ($char[-1] =~ m/\A [\x81-\xFE][\x5C] \z/oxms) {
+                return 1;
+            }
+        }
+    }
+    return;
+}
+
 1;
 
 __END__
@@ -4050,6 +4112,7 @@ Let's make the future of JPerl.
 
     Big5Plus.pm      --- source code filter to escape Big5Plus
     Ebig5plus.pm     --- run-time routines for Big5Plus.pm
+    perl55.bat   --- find and run perl5.5 without %PATH% settings
     perl58.bat   --- find and run perl5.8 without %PATH% settings
     perl510.bat  --- find and run perl5.10 without %PATH% settings
 
@@ -4116,7 +4179,6 @@ support chr(0x5C) ended path on MSWin32.
 
 =item * glob --> Ebig5plus::glob or Ebig5plus::glob_
 
-
   @glob = Ebig5plus::glob($string);
   @glob = Ebig5plus::glob_;
 
@@ -4152,6 +4214,10 @@ original Perl.
 =item * format
 
 It is the same as the function of original Perl.
+
+=item * chdir --> Ebig5plus::chdir
+
+no support chr(0x5C) ended path on MSWin32.
 
 =back
 
@@ -4247,7 +4313,7 @@ escape for double quote type.
         END3
 
     ex.9
-        print <<"END1", <<'END2', "END3";
+        print <<"END1", <<'END2', <<"END3";
         ============================================================
         Escaped for DOUBLE quote document "END1", 'END2', "END3".
         'END2' see string rewritten for "END1" and "END3".

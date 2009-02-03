@@ -147,3 +147,10 @@ Revision history for Perl extension Sjis.
 	- rewrite all about "split" logic.
 	; created by INABA Hitoshi
 
+0.32  2009/02/03 00:00:00
+	- add script perl55.bat.
+	- wildcard globbing of @ARGV on command.com or cmd.exe.
+	- support chr(0x5C) ended path of do '', do "", require '' and require '' on MSWin32.
+	- chdir croak when dirname ends chr(0x5C) on MSWin32.
+	; created by INABA Hitoshi
+
