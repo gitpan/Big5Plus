@@ -76,10 +76,12 @@ for my $target (@ARGV) {
         # make work directory
         my($changes) = grep(/^Changes$/i,@file);
         open(CHANGES,$changes) || die "Can't open file: $changes\n";
-        my $version;
+        my $version = 0;
         while (<CHANGES>) {
             if (/^(\d+\.\d+)/) {
-                $version = $1;
+                if ($1 > $version) {
+                    $version = $1;
+                }
             }
         }
         close(CHANGES);

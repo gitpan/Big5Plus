@@ -12,6 +12,7 @@ SYNOPSIS
 
       perl.exe     yourscript.pl  wild*  *card  and  '*quote*'  are  ok  ...
       perl55.bat   yourscript.pl  wild*  *card  and  '*quote*'  are  ok  ...
+      perl56.bat   yourscript.pl  wild*  *card  and  '*quote*'  are  ok  ...
       perl58.bat   yourscript.pl  wild*  *card  and  '*quote*'  are  ok  ...
       perl510.bat  yourscript.pl  wild*  *card  and  '*quote*'  are  ok  ...
 
@@ -32,6 +33,7 @@ To install this software, type the following:
 
    make.bat install              --- install to current using Perl
    perl55.bat make.bat instal    --- install to Perl5.5
+   perl56.bat make.bat instal    --- install to Perl5.6
    perl58.bat make.bat instal    --- install to Perl5.8
    perl510.bat make.bat install  --- install to Perl5.10
 
@@ -45,12 +47,13 @@ PROGRAM COMPOSITION
    Big5Plus.pm  --- source code filter for Big5Plus script
    EBig5Plus.pm --- run-time routines for Big5Plus.pm
    perl55.bat   --- find and run perl5.5  without %PATH% settings
+   perl56.bat   --- find and run perl5.6  without %PATH% settings
    perl58.bat   --- find and run perl5.8  without %PATH% settings
    perl510.bat  --- find and run perl5.10 without %PATH% settings
 
 DEPENDENCIES
 
-This software requires perl5.00503 or later and perl5.008 or perl5.010.
+This software requires perl5.00503 or later.
 
 LICENSE AND COPYRIGHT
 

@@ -11,13 +11,14 @@ use strict;
 use 5.00503;
 use vars qw($VERSION $_warning);
 
-$VERSION = sprintf '%d.%02d', q$Revision: 0.32 $ =~ m/(\d+)/xmsg;
+$VERSION = sprintf '%d.%02d', q$Revision: 0.33 $ =~ m/(\d+)/xmsg;
 
-use Carp qw(carp croak confess cluck verbose);
 use Fcntl;
 use Symbol;
 
-local $SIG{__WARN__} = sub { cluck @_ };
+use Carp qw(carp croak confess cluck verbose);
+local $SIG{__DIE__}  = sub { confess @_ } if exists $ENV{'SJIS_DEBUG'};
+local $SIG{__WARN__} = sub { cluck   @_ } if exists $ENV{'SJIS_DEBUG'};
 $_warning = $^W; # push warning, warning on
 local $^W = 1;
 
@@ -2040,7 +2041,10 @@ sub Ebig5plus::T(;*@) {
 
     my $fh = Symbol::qualify_to_ref $_;
     if (fileno $fh) {
+
+        # avoid warning of telldir by not DIRHANDLE
         local $^W = 0;
+
         if (defined telldir $fh) {
             return wantarray ? (undef,@_) : undef;
         }
@@ -2113,7 +2117,10 @@ sub Ebig5plus::B(;*@) {
 
     my $fh = Symbol::qualify_to_ref $_;
     if (fileno $fh) {
+
+        # avoid warning of telldir by not DIRHANDLE
         local $^W = 0;
+
         if (defined telldir $fh) {
             return wantarray ? (undef,@_) : undef;
         }
@@ -3352,11 +3359,27 @@ sub Ebig5plus::chdir(;$) {
     if (not defined $dir) {
         $dir = ($ENV{'HOME'} || $ENV{'USERPROFILE'} || "$ENV{'HOMEDRIVE'}$ENV{'HOMEPATH'}");
     }
+
     if (_MSWin32_5Cended_path($dir)) {
-        if (Ebig5plus::d $dir) {
-            croak "Can't chdir $dir";
+        if (not Ebig5plus::d $dir) {
+            return 0;
         }
-        return 0;
+
+        if ($] =~ /^5\.005/) {
+            return CORE::chdir $dir;
+        }
+        elsif ($] =~ /^5\.006/) {
+            croak "perl$] can't chdir $dir (chr(0x5C) ended path)";
+        }
+        elsif ($] =~ /^5\.008/) {
+            croak "perl$] can't chdir $dir (chr(0x5C) ended path)";
+        }
+        elsif ($] =~ /^5\.010/) {
+            croak "perl$] can't chdir $dir (chr(0x5C) ended path)";
+        }
+        else {
+            croak "perl$] can't chdir $dir (chr(0x5C) ended path)";
+        }
     }
     else {
         return CORE::chdir $dir;
@@ -3779,7 +3802,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
   it changes to the home directory. The function returns 1 upon success, 0
   otherwise (and puts the error code into $!).
 
-  This function can't function when the $dirname ends with chr(0x5C) on MSWin32.
+  This function can't function when the $dirname ends with chr(0x5C) on perl5.006,
+  perl5.008, perl5.010 on MSWin32.
 
 =back
 

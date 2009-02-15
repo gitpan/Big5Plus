@@ -12,11 +12,11 @@ use 5.00503;
 use Ebig5plus;
 use vars qw($VERSION);
 
-$VERSION = sprintf '%d.%02d', q$Revision: 0.32 $ =~ m/(\d+)/oxmsg;
+$VERSION = sprintf '%d.%02d', q$Revision: 0.33 $ =~ m/(\d+)/oxmsg;
 
 use Carp qw(carp croak confess cluck verbose);
-
-local $SIG{__WARN__} = sub { cluck "$0: ", @_ };
+local $SIG{__DIE__}  = sub { confess @_ } if exists $ENV{'SJIS_DEBUG'};
+local $SIG{__WARN__} = sub { cluck   @_ } if exists $ENV{'SJIS_DEBUG'};
 local $^W = 1;
 
 $| = 1;
@@ -141,7 +141,13 @@ END
         exit 0;
     }
     else {
-        if (m/(.+#line \d+\n)/omsgc) {
+
+        # P.29 Comments
+        # in Chapter 2: Basic Perl Parsing Rules and Traps
+        # of ISBN 978-0072126761 Debugging Perl
+        # (and so on)
+
+        if (m/(.*#\s*line\s+\d+(?:\s*"(?:$q_char)*?")?\s*\n)/omsgc) {
             my $head = $1;
             $head =~ s/\bjperl\b/perl/gi;
             print $head;
@@ -158,6 +164,35 @@ use Ebig5plus %s;
 END
         s/^ \s* use \s+ Big5Plus \s* ; \s* \n? $//oxms;
     }
+
+    # use Tk; --> use Big5Plus::Tk;
+    my $use_tk = <<'USE_TK';
+BEGIN {
+    eval qq{ use Big5Plus::Tk; };
+    if ($] >= 5.007) {
+        eval qq{ use Big5Plus::Tk::Canvas58;    };
+        eval qq{ use Big5Plus::Tk::Entry58;     };
+        eval qq{ use Big5Plus::Tk::Text58;      };
+        eval qq{ use Big5Plus::Tk::Button;      };
+        eval qq{ use Big5Plus::Tk::Checkbutton; };
+        eval qq{ use Big5Plus::Tk::Frame;       };
+        eval qq{ use Big5Plus::Tk::Label;       };
+        eval qq{ use Big5Plus::Tk::Listbox;     };
+        eval qq{ use Big5Plus::Tk::Menu;        };
+        eval qq{ use Big5Plus::Tk::Menubutton;  };
+        eval qq{ use Big5Plus::Tk::Message;     };
+        eval qq{ use Big5Plus::Tk::Radiobutton; };
+        eval qq{ use Big5Plus::Tk::Scale;       };
+        eval qq{ use Big5Plus::Tk::Toplevel;    };
+    }
+    else {
+        eval qq{ use Big5Plus::Tk::Canvas55;    };
+        eval qq{ use Big5Plus::Tk::Entry55;     };
+        eval qq{ use Big5Plus::Tk::Text55;      };
+    }
+}
+USE_TK
+    s/^ (\s* use \s+ Tk [^;]* ; \s*? \n) /$1$use_tk/oxmsg;
 
     $slash = 'm//';
 
@@ -202,16 +237,16 @@ if (exists $ENV{'SJIS_DEBUG'}) {
 # make escaped script
 my $e_script = '';
 if ((not -e "$filename.e") or (-M "$filename.e" < -M $filename) or (-M $filename < -M $__FILE__)) {
-    open(FILE,$filename) || croak "$__FILE__: Can't open file: $filename";
+    open FILE, $filename or croak "$__FILE__: Can't open file: $filename";
     local $/ = undef; # slurp mode
     $_ = <FILE>;
-    close FILE;
+    close FILE or croak "$__FILE__: Can't close file: $filename";
 
     if (m/\b use \s+ Ebig5plus \s* ; /oxms) {
         $e_script .= $_;
     }
     else {
-        if (m/(.+#line \d+\n)/omsgc) {
+        if (m/(.*#\s*line\s+\d+(?:\s*"(?:$q_char)*?")?\s*\n)/omsgc) {
             my $head = $1;
             $head =~ s/\bjperl\b/perl/gi;
             $e_script .= $head;
@@ -222,15 +257,45 @@ use lib $FindBin::Bin;
 use Ebig5plus %s;
 END
         s/^ \s* use \s+ Big5Plus \s* ; \s* \n? $//oxms;
+
+        # use Tk; --> use Big5Plus::Tk;
+        my $use_tk = <<'USE_TK';
+BEGIN {
+    eval qq{ use Big5Plus::Tk; };
+    if ($] >= 5.007) {
+        eval qq{ use Big5Plus::Tk::Canvas58;    };
+        eval qq{ use Big5Plus::Tk::Entry58;     };
+        eval qq{ use Big5Plus::Tk::Text58;      };
+        eval qq{ use Big5Plus::Tk::Button;      };
+        eval qq{ use Big5Plus::Tk::Checkbutton; };
+        eval qq{ use Big5Plus::Tk::Frame;       };
+        eval qq{ use Big5Plus::Tk::Label;       };
+        eval qq{ use Big5Plus::Tk::Listbox;     };
+        eval qq{ use Big5Plus::Tk::Menu;        };
+        eval qq{ use Big5Plus::Tk::Menubutton;  };
+        eval qq{ use Big5Plus::Tk::Message;     };
+        eval qq{ use Big5Plus::Tk::Radiobutton; };
+        eval qq{ use Big5Plus::Tk::Scale;       };
+        eval qq{ use Big5Plus::Tk::Toplevel;    };
+    }
+    else {
+        eval qq{ use Big5Plus::Tk::Canvas55;    };
+        eval qq{ use Big5Plus::Tk::Entry55;     };
+        eval qq{ use Big5Plus::Tk::Text55;      };
+    }
+}
+USE_TK
+        s/^ (\s* use \s+ Tk [^;]* ; \s*? \n) /$1$use_tk/oxmsg;
+
         $slash = 'm//';
         study $_;
         while (not /\G \z/oxgc) { # member
             $e_script .= escape();
         }
     }
-    open(E_FILE,">$filename.e") || croak "$__FILE__: Can't open file: $filename.e";
+    open E_FILE, ">$filename.e" or croak "$__FILE__: Can't open file: $filename.e";
     print E_FILE $e_script;
-    close E_FILE;
+    close E_FILE or croak "$__FILE__: Can't close file: $filename.e";
 }
 
 exit system map {m/ $your_gap [ ] /oxms ? qq{"$_"} : $_} $^X, "$filename.e", @ARGV;
@@ -4113,6 +4178,7 @@ Let's make the future of JPerl.
     Big5Plus.pm      --- source code filter to escape Big5Plus
     Ebig5plus.pm     --- run-time routines for Big5Plus.pm
     perl55.bat   --- find and run perl5.5 without %PATH% settings
+    perl56.bat   --- find and run perl5.6 without %PATH% settings
     perl58.bat   --- find and run perl5.8 without %PATH% settings
     perl510.bat  --- find and run perl5.10 without %PATH% settings
 
@@ -4152,6 +4218,10 @@ A part of function in the script is written and changes by this software.
 =item * tr/// or y/// --> Ebig5plus::tr
 
 /b and /B modifier can also be used.
+
+=item * chdir --> Ebig5plus::chdir
+
+support chr(0x5C) ended path on only perl5.005 if MSWin32.
 
 =back
 
@@ -4204,34 +4274,27 @@ support chr(0x5C) ended path on MSWin32.
 
 =back
 
-=head1 JPerl NOT COMPATIBLE FUNCTIONS
-
-The following functions are not compatible with JPerl. It is the same as
-original Perl. 
-
-=over 2
-
-=item * format
-
-It is the same as the function of original Perl.
-
-=item * chdir --> Ebig5plus::chdir
-
-no support chr(0x5C) ended path on MSWin32.
-
-=back
-
-=head1 BUGS AND LIMITATIONS
+=head1 BUGS AND LIMITATIONS OR JPerl NOT COMPATIBLE FUNCTIONS
 
 Please patches and report problems to author are welcome.
 
 =over 2
 
-=item * LIMITATION #1
+=item * format
 
-Function "format" can't handle double octet code.
+Function "format" can't handle double octet code same as original Perl.
 
-=item * LIMITATION #2
+=item * chdir
+
+Function "chdir" can't change directory chr(0x5C) ended path on perl5.006, perl5.008
+and perl5.010 if MSWin32.
+
+see also,
+Bug #81839
+chdir does not work with chr(0x5C) at end of path
+http://bugs.activestate.com/show_bug.cgi?id=81839
+
+=item * here document
 
 When two or more delimiters of here documents are in one line, if any one is
 a double quote type(<<"END", <<END or <<`END`), then all here documents will
@@ -4329,7 +4392,7 @@ escape for double quote type.
         ============================================================
         END3
 
-=item * LIMITATION #3
+=item * do, require and use
 
 This software can not escape recursively script loaded by do, require and use.
 
@@ -4531,6 +4594,14 @@ programming environment like at that time.
  Pages: 172
  T1008901080816 ZASSHI 08901-8
  L<http://ascii.asciimw.jp/books/magazines/unix.shtml>
+
+ C<Debugging Perl>
+ Troubleshooting for Programmers
+ Martin C. Brown
+ 1st edition October 2, 2000
+ Pages: 425
+ ISBN-10: 0072126760 | ISBN-13: 978-0072126761
+ L<http://www.amazon.com/Debugging-Perl-Troubleshooting-Martin-Brown/dp/0072126760>
 
 =head1 ACKNOWLEDGEMENTS
 
