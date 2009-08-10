@@ -1,5 +1,43 @@
 Revision history for Perl extension Sjis.
 
+0.39  2009/08/06 00:00:00
+	- support Sjis::length, Sjis::substr, Sjis::index and Sjis::rindex.
+	; created by INABA Hitoshi
+
+0.38  2009/08/05 00:00:00
+	- improve qw.
+	- filetest operator before parenthesis '-X ('.
+	- escape sequence of hexadecimal number of one digit.
+	- fix bugs of function charlist_not_qr.
+	; created by INABA Hitoshi
+
+0.37  2009/07/09 00:00:00
+	- separate Tk modules, make-*.pl and test scripts.
+	- remove perl55.bat and perl56.bat.
+	; created by INABA Hitoshi
+
+0.36  2009/05/17 00:00:00
+	- do local $@ before eval.
+	- support Tk::getOpenFile and Tk::getSaveFile.
+	- rewrite in pure batch file perl55.bat, perl56.bat, perl58.bat and perl510.bat.
+	- fixing world writable files in tarball before upload to CPAN [ #38127 ].
+	; created by INABA Hitoshi
+
+0.35  2009/05/06 00:00:00
+	- support do, require and use for user library.
+	- upper compatible function ord and reverse functions only when demanded.
+	- support p modifier of m//, s/// and qr// of perl5.10.
+	- support !~~ operator.
+	- change to secure code, open() to sysopen().
+	- change to secure code, undef %ENV before system().
+	- add make-hp15.pl(HP-15 Hewlett-Packard developed).
+	; created by INABA Hitoshi
+
+0.34  2009/04/01 00:00:00
+	- memorial version on birth day.
+	- Sjis::Tk::* modules pre alpha support.
+	; created by INABA Hitoshi
+
 0.33  2009/02/15 00:00:00
 	- add script perl56.bat.
 	- use Tk --> use Sjis::Tk alpha support.

@@ -1,9 +1,12 @@
 use strict;
+use Fcntl;
+use Symbol;
 
 # make make.bat
-open(MAKEBAT,">make.bat") || die "Can't open file: make.bat\n";
-print MAKEBAT <DATA>;
-close(MAKEBAT);
+my $fh_makebat = Symbol::gensym();
+sysopen($fh_makebat, 'make.bat', O_WRONLY | O_TRUNC | O_CREAT) || die "Can't open file: make.bat\n";
+print {$fh_makebat} <DATA>;
+close $fh_makebat;
 
 __END__
 @rem = '--*-Perl-*--
@@ -24,6 +27,8 @@ goto endofperl
 
 undef @rem;
 use strict;
+use Fcntl;
+use Symbol;
 use File::Path;
 use File::Copy;
 use File::Basename;
@@ -44,9 +49,10 @@ END
 }
 
 # get file list
-open(MANIFEST,"MANIFEST") || die "Can't open file: MANIFEST\n";
-chomp(my @file = <MANIFEST>);
-close(MANIFEST);
+my $fh_manifest = Symbol::gensym();
+sysopen($fh_manifest, 'MANIFEST', O_RDONLY) || die "Can't open file: MANIFEST\n";
+chomp(my @file = <$fh_manifest>);
+close $fh_manifest;
 
 for my $target (@ARGV) {
     if ($target eq 'test') {
@@ -58,47 +64,72 @@ for my $target (@ARGV) {
         # install *.pm files to /Perl/site/lib
         my($perl_site_lib) = grep(m{/site/}xmsi, @INC);
         for (grep m/ \. pm \z /xmsi, @file) {
-            print STDERR "copy $_ $perl_site_lib\n";
-            copy($_, $perl_site_lib);
+            if (m#^(.+)/#) {
+                print STDERR "copy $_ $perl_site_lib/$1\n";
+                mkpath("$perl_site_lib/$1", 0, 0777) unless -d "$perl_site_lib/$1";
+                copy($_, "$perl_site_lib/$1");
+            }
+            else {
+                print STDERR "copy $_ $perl_site_lib\n";
+                copy($_, $perl_site_lib);
+            }
         }
 
-        # install *.pl and *.bat files to /Perl/bin
+        # install *.pl, *.bat, *.exe and *.com files to /Perl/bin
         my($perl_bin) = $^X =~ /^(.*)\\[^\\]*$/;
-        for (grep m/ \. (?: pl | bat ) \z /xmsi, @file) {
+        for (grep m/ \. (?: pl | bat | exe | com ) \z /xmsi, @file) {
             next if m/(?: Makefile | test ) \.pl  $/xmsi;
             next if m/(?: make | tar )      \.bat $/xmsi;
-            print STDERR "copy $_ $perl_bin\n";
-            copy($_, $perl_bin);
+            if (m#^(.+)/#) {
+                print STDERR "copy $_ $perl_bin/$1\n";
+                mkpath("$perl_site_lib/$1", 0, 0777) unless -d "$perl_site_lib/$1";
+                copy($_, "$perl_bin/$1");
+            }
+            else {
+                print STDERR "copy $_ $perl_bin\n";
+                copy($_, $perl_bin);
+            }
         }
     }
     elsif ($target eq 'dist') {
 
         # make work directory
         my($changes) = grep(/^Changes$/i,@file);
-        open(CHANGES,$changes) || die "Can't open file: $changes\n";
+        my $fh_changes = Symbol::gensym();
+        sysopen($fh_changes, $changes, O_RDONLY) || die "Can't open file: $changes\n";
         my $version = 0;
-        while (<CHANGES>) {
+        while (<$fh_changes>) {
             if (/^(\d+\.\d+)/) {
                 if ($1 > $version) {
                     $version = $1;
                 }
             }
         }
-        close(CHANGES);
+        close $fh_changes;
+        my $dirname  = dirname($file[0]);
         my $basename = basename($file[0], '.pm','.pl','.bat');
-        my $tardir = "$basename-$version";
+        my $tardir;
+        if ($dirname ne '.') {
+            $dirname =~ tr#/#-#;
+            $tardir = "$dirname-$basename-$version";
+        }
+        else {
+            $tardir = "$basename-$version";
+        }
         rmtree($tardir,0,0);
 
         # rewrite META.yml file
         if(my($metayml) = grep(/^META\.yml$/i,@file)) {
-            if (open(METAYML,$metayml)) {
-                $_ = join('',<METAYML>);
-                close(METAYML);
-                if (open(METAYML,">$metayml")) {
+            my $fh_metayml = Symbol::gensym();
+            if (sysopen($fh_metayml, $metayml, O_RDONLY)) {
+                $_ = join('',<$fh_metayml>);
+                close $fh_metayml;
+                my $fh_metayml = Symbol::gensym();
+                if (sysopen($fh_metayml, $metayml, O_WRONLY | O_TRUNC | O_CREAT)) {
                     s/^(version:\s*)\d+\.\d+/$1$version/m;
-                    binmode(METAYML);
-                    print METAYML $_;
-                    close(METAYML);
+                    binmode $fh_metayml;
+                    print {$fh_metayml} $_;
+                    close $fh_metayml;
                 }
             }
         }
@@ -107,38 +138,68 @@ for my $target (@ARGV) {
         my $tar = Archive::Tar->new;
         for my $file (@file) {
             if (-e $file) {
-                mkpath(dirname("$tardir/$file"),0,0777);
+                mkpath(dirname("$tardir/$file"), 0, 0777);
                 print STDERR "copy $file $tardir/$file\n";
                 copy($file, "$tardir/$file");
-                $tar->add_files("$tardir/$file");
+
+#-----------------------------------------------------------------------------
+# Sunday December 21, 2008 07:38 PM 
+# Fixing world writable files in tarball before upload to CPAN [ #38127 ]
+# http://use.perl.org/~bart/journal/38127
+#-----------------------------------------------------------------------------
+#               $tar->add_files("$tardir/$file");
+#-----------------------------------------------------------------------------
+                my $fh = Symbol::gensym();
+                sysopen($fh, $file, O_RDONLY) || die "Can't open file: $file\n";
+                binmode $fh;
+                local $/ = undef; # slurp mode
+                my $data = <$fh>;
+                close $fh;
+                if ($file =~ m/\. (com|exe|bat|pl) \z/oxmsi) {
+                    $tar->add_data("$tardir/$file", $data, {'mode' => 0775});
+                }
+                else {
+                    $tar->add_data("$tardir/$file", $data, {'mode' => 0664});
+                }
+#-----------------------------------------------------------------------------
             }
             else {
                 die "file: $file is not exists.\n";
             }
         }
+
         my $tarfile = "$tardir.tar";
         $tar->write($tarfile);
         rmtree($tardir,0,0);
 
         # make *.tar.gz file
         my $gz = gzopen("$tarfile.gz", 'wb');
-        open(TAR, $tarfile) || die "Can't open file: $tarfile\n";
-        binmode(TAR);
-        $gz->gzwrite(join('',<TAR>));
-        close(TAR);
+        my $fh_tar = Symbol::gensym();
+        sysopen($fh_tar, $tarfile, O_RDONLY) || die "Can't open file: $tarfile\n";
+        binmode $fh_tar;
+        $gz->gzwrite(join('',<$fh_tar>));
+        close $fh_tar;
         $gz->gzclose;
         unlink $tarfile;
 
-		# untar test
-		system("make.bat tar.bat");
-		system("tar.bat xzvf $tarfile.gz");
+        # P.565 Cleaning Up Your Environment
+        # in Chapter 23: Security
+        # of ISBN 0-596-00027-8 Programming Perl Third Edition.
+
+        # local $ENV{'PATH'} = '.';
+        local @ENV{qw(IFS CDPATH ENV BASH_ENV)};
+
+        # untar test
+        system("make.bat tar.bat");
+        system("tar.bat xzvf $tarfile.gz");
     }
     elsif ($target eq 'tar.bat') {
 
         # make tar.bat
-        open(TARBAT,">tar.bat") || die "Can't open file: tar.bat\n";
-        print TARBAT <DATA>;
-        close(TARBAT);
+        my $fh_tarbat = Symbol::gensym();
+        sysopen($fh_tarbat, 'tar.bat', O_WRONLY | O_TRUNC | O_CREAT) || die "Can't open file: tar.bat\n";
+        print {$fh_tarbat} <DATA>;
+        close $fh_tarbat;
     }
     else {
         warn "unknown target: $target.\n";
@@ -164,6 +225,8 @@ goto endofperl
 
 undef @rem;
 use strict;
+use Fcntl;
+use Symbol;
 use Compress::Zlib;
 use Archive::Tar;
 
@@ -180,13 +243,14 @@ for my $gzfile (grep m/\.tar\.gz$/xmsi, @ARGV) {
 
     my $gz = gzopen($gzfile, 'rb');
     (my $tarfile = $gzfile) =~ s/\.gz$//xmsi;
-    open(TAR,">$tarfile") || die "Can't open file: $tarfile\n";
-    binmode(TAR);
+    my $fh_tar = Symbol::gensym();
+    sysopen($fh_tar, $tarfile, O_WRONLY | O_TRUNC | O_CREAT) || die "Can't open file: $tarfile\n";
+    binmode $fh_tar;
     while ($gz->gzreadline(my $line)) {
-        print TAR $line;
+        print {$fh_tar} $line;
     }
     $gz->gzclose;
-    close(TAR);
+    close $fh_tar;
 
     my $tar = Archive::Tar->new($tarfile,1);
     for my $file ($tar->list_files){

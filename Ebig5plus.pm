@@ -11,10 +11,11 @@ use strict;
 use 5.00503;
 use vars qw($VERSION $_warning);
 
-$VERSION = sprintf '%d.%02d', q$Revision: 0.33 $ =~ m/(\d+)/xmsg;
+$VERSION = sprintf '%d.%02d', q$Revision: 0.39 $ =~ m/(\d+)/xmsg;
 
 use Fcntl;
 use Symbol;
+use FindBin;
 
 use Carp qw(carp croak confess cluck verbose);
 local $SIG{__DIE__}  = sub { confess @_ } if exists $ENV{'SJIS_DEBUG'};
@@ -113,13 +114,20 @@ sub Ebig5plus::stat(*);
 sub Ebig5plus::stat_();
 sub Ebig5plus::unlink(@);
 sub Ebig5plus::chdir(;$);
+sub Ebig5plus::do($);
+sub Ebig5plus::require(;$);
+
+sub Big5Plus::length;
+sub Big5Plus::substr($$;$$);
+sub Big5Plus::index($$;$);
+sub Big5Plus::rindex($$;$);
 
 # @ARGV wildcard globbing
 if ($^O =~ /\A (?: MSWin32 | NetWare | symbian | dos ) \z/oxms) {
     if ($ENV{'ComSpec'} =~ / (?: COMMAND\.COM | CMD\.EXE ) \z /oxmsi) {
         my @argv = ();
         for (@ARGV) {
-            if (m/\A ' ((?:[\x81-\xFE][\x00-\xFF] | [^\x81-\xFE])*) ' \z/oxms) {
+            if (m/\A ' ((?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])*) ' \z/oxms) {
                 push @argv, $1;
             }
             elsif (my @glob = Ebig5plus::glob($_)) {
@@ -164,12 +172,13 @@ sub Ebig5plus::split(;$$$) {
             # the //m modifier is assumed when you split on the pattern /^/
             # (and so on)
 
-            while ($string =~ s/\A((?:[\x81-\xFE][\x00-\xFF]|[^\x81-\xFE])*?)\s+//m) {
+            while ($string =~ s/\A((?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])*?)\s+//m) {
 
                 # if the $pattern contains parentheses, then the substring matched by each pair of parentheses
                 # is included in the resulting list, interspersed with the fields that are ordinarily returned
                 # (and so on)
 
+                local $@;
                 for (my $digit=1; eval "defined(\$$digit)"; $digit++) {
                     push @split, eval '$' . $digit;
                 }
@@ -182,8 +191,9 @@ sub Ebig5plus::split(;$$$) {
         # (and so on)
 
         elsif ('' =~ m/ \A $pattern \z /xms) {
-            #                                                                               v--- Look
-            while ($string =~ s/\A((?:[\x81-\xFE][\x00-\xFF]|[^\x81-\xFE])+?)$pattern//m) {
+            #                                                                     v--- Look
+            while ($string =~ s/\A((?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])+?)$pattern//m) {
+                local $@;
                 for (my $digit=1; eval "defined(\$$digit)"; $digit++) {
                     push @split, eval '$' . $digit;
                 }
@@ -191,8 +201,9 @@ sub Ebig5plus::split(;$$$) {
         }
 
         else {
-            #                                                                               v--- Look
-            while ($string =~ s/\A((?:[\x81-\xFE][\x00-\xFF]|[^\x81-\xFE])*?)$pattern//m) {
+            #                                                                     v--- Look
+            while ($string =~ s/\A((?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])*?)$pattern//m) {
+                local $@;
                 for (my $digit=1; eval "defined(\$$digit)"; $digit++) {
                     push @split, eval '$' . $digit;
                 }
@@ -203,8 +214,9 @@ sub Ebig5plus::split(;$$$) {
     else {
         if ((not defined $pattern) or ($pattern eq ' ')) {
             $string =~ s/ \A \s+ //oxms;
-            while ((--$limit > 0) and (length($string) > 0)) {
-                if ($string =~ s/\A((?:[\x81-\xFE][\x00-\xFF]|[^\x81-\xFE])*?)\s+//m) {
+            while ((--$limit > 0) and (CORE::length($string) > 0)) {
+                if ($string =~ s/\A((?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])*?)\s+//m) {
+                    local $@;
                     for (my $digit=1; eval "defined(\$$digit)"; $digit++) {
                         push @split, eval '$' . $digit;
                     }
@@ -212,9 +224,10 @@ sub Ebig5plus::split(;$$$) {
             }
         }
         elsif ('' =~ m/ \A $pattern \z /xms) {
-            while ((--$limit > 0) and (length($string) > 0)) {
-                #                                                                            v--- Look
-                if ($string =~ s/\A((?:[\x81-\xFE][\x00-\xFF]|[^\x81-\xFE])+?)$pattern//m) {
+            while ((--$limit > 0) and (CORE::length($string) > 0)) {
+                #                                                                  v--- Look
+                if ($string =~ s/\A((?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])+?)$pattern//m) {
+                    local $@;
                     for (my $digit=1; eval "defined(\$$digit)"; $digit++) {
                         push @split, eval '$' . $digit;
                     }
@@ -222,9 +235,10 @@ sub Ebig5plus::split(;$$$) {
             }
         }
         else {
-            while ((--$limit > 0) and (length($string) > 0)) {
-                #                                                                            v--- Look
-                if ($string =~ s/\A((?:[\x81-\xFE][\x00-\xFF]|[^\x81-\xFE])*?)$pattern//m) {
+            while ((--$limit > 0) and (CORE::length($string) > 0)) {
+                #                                                                  v--- Look
+                if ($string =~ s/\A((?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])*?)$pattern//m) {
+                    local $@;
                     for (my $digit=1; eval "defined(\$$digit)"; $digit++) {
                         push @split, eval '$' . $digit;
                     }
@@ -264,25 +278,9 @@ sub Ebig5plus::tr($$$;$) {
     my $replacementlist = $_[2];
     my $modifier        = $_[3] || '';
 
-    my @char            = ();
-    my @searchlist      = ();
-    my @replacementlist = ();
-
-    @char = $_[0] =~ m/\G ([\x81-\xFE][\x00-\xFF] | [\x00-\xFF]) /oxmsg;
-    @searchlist = _charlist_tr($searchlist =~ m{\G(
-        \\     [0-7]{2,3}          |
-        \\x    [0-9A-Fa-f]{2}      |
-        \\c    [\x40-\x5F]         |
-        \\  (?:[\x81-\xFE][\x00-\xFF] | [\x00-\xFF]) |
-            (?:[\x81-\xFE][\x00-\xFF] | [\x00-\xFF])
-    )}oxmsg);
-    @replacementlist = _charlist_tr($replacementlist =~ m{\G(
-        \\     [0-7]{2,3}          |
-        \\x    [0-9A-Fa-f]{2}      |
-        \\c    [\x40-\x5F]         |
-        \\  (?:[\x81-\xFE][\x00-\xFF] | [\x00-\xFF]) |
-            (?:[\x81-\xFE][\x00-\xFF] | [\x00-\xFF])
-    )}oxmsg);
+    my @char            = $_[0] =~ m/\G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxmsg;
+    my @searchlist      = _charlist_tr($searchlist);
+    my @replacementlist = _charlist_tr($replacementlist);
 
     my %tr = ();
     for (my $i=0; $i <= $#searchlist; $i++) {
@@ -350,13 +348,13 @@ sub Ebig5plus::chop(@) {
 
     my $chop;
     if (@_ == 0) {
-        my @char = m/\G ([\x81-\xFE][\x00-\xFF] | [\x00-\xFF])/oxmsg;
+        my @char = m/\G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF])/oxmsg;
         $chop = pop @char;
         $_ = join '', @char;
     }
     else {
         for (@_) {
-            my @char = m/\G ([\x81-\xFE][\x00-\xFF] | [\x00-\xFF]) /oxmsg;
+            my @char = m/\G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxmsg;
             $chop = pop @char;
             $_ = join '', @char;
         }
@@ -365,7 +363,7 @@ sub Ebig5plus::chop(@) {
 }
 
 #
-# Big5Plus index
+# Big5Plus index by octet
 #
 sub Ebig5plus::index($$;$) {
 
@@ -373,13 +371,13 @@ sub Ebig5plus::index($$;$) {
     $position ||= 0;
     my $pos = 0;
 
-    while ($pos < length($str)) {
-        if (substr($str,$pos,length($substr)) eq $substr) {
+    while ($pos < CORE::length($str)) {
+        if (CORE::substr($str,$pos,CORE::length($substr)) eq $substr) {
             if ($pos >= $position) {
                 return $pos;
             }
         }
-        if (substr($str,$pos,1) =~ m/\A [\x81-\xFE] \z/oxms) {
+        if (CORE::substr($str,$pos,1) =~ m/\A [\x81-\xFE] \z/oxms) {
             $pos += 2;
         }
         else {
@@ -395,15 +393,15 @@ sub Ebig5plus::index($$;$) {
 sub Ebig5plus::rindex($$;$) {
 
     my($str,$substr,$position) = @_;
-    $position ||= length($str) - 1;
+    $position ||= CORE::length($str) - 1;
     my $pos = 0;
     my $rindex = -1;
 
-    while (($pos < length($str)) and ($pos <= $position)) {
-        if (substr($str,$pos,length($substr)) eq $substr) {
+    while (($pos < CORE::length($str)) and ($pos <= $position)) {
+        if (CORE::substr($str,$pos,CORE::length($substr)) eq $substr) {
             $rindex = $pos;
         }
-        if (substr($str,$pos,1) =~ m/\A [\x81-\xFE] \z/oxms) {
+        if (CORE::substr($str,$pos,1) =~ m/\A [\x81-\xFE] \z/oxms) {
             $pos += 2;
         }
         else {
@@ -426,7 +424,7 @@ sub Ebig5plus::lc($) {
 
     local $^W = 0;
 
-    return join('', map {$lc{$_}||$_} m/\G ([\x81-\xFE][\x00-\xFF] | [\x00-\xFF])/oxmsg);
+    return join('', map {$lc{$_}||$_} m/\G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF])/oxmsg);
 }
 
 #
@@ -440,7 +438,7 @@ sub Ebig5plus::lc_() {
 
     local $^W = 0;
 
-    return join('', map {$lc{$_}||$_} m/\G ([\x81-\xFE][\x00-\xFF] | [\x00-\xFF])/oxmsg);
+    return join('', map {$lc{$_}||$_} m/\G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF])/oxmsg);
 }
 
 #
@@ -456,7 +454,7 @@ sub Ebig5plus::uc($) {
 
     local $^W = 0;
 
-    return join('', map {$uc{$_}||$_} m/\G ([\x81-\xFE][\x00-\xFF] | [\x00-\xFF]) /oxmsg);
+    return join('', map {$uc{$_}||$_} m/\G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxmsg);
 }
 
 #
@@ -470,7 +468,7 @@ sub Ebig5plus::uc_() {
 
     local $^W = 0;
 
-    return join('', map {$uc{$_}||$_} m/\G ([\x81-\xFE][\x00-\xFF] | [\x00-\xFF]) /oxmsg);
+    return join('', map {$uc{$_}||$_} m/\G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxmsg);
 }
 
 #
@@ -484,6 +482,7 @@ sub Ebig5plus::shift_matched_var() {
     # $4 --> $3
     my $dollar1 = $1;
 
+    local $@;
     for (my $digit=1; eval "defined(\$$digit)"; $digit++) {
         eval sprintf '*%d = *%d', $digit, $digit+1;
     }
@@ -505,7 +504,7 @@ sub Ebig5plus::ignorecase(@) {
         # split regexp
         my @char = $string =~ m{\G(
             \[\^ |
-                (?:[\x81-\xFE\\][\x00-\xFF] | [\x00-\xFF])
+                \\? (?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])
         )}oxmsg;
 
         # unescape character
@@ -528,7 +527,7 @@ sub Ebig5plus::ignorecase(@) {
 
                             # do not use quotemeta here
                             if ($char =~ m/\A ([\x81-\xFE]) ($metachar) \z/oxms) {
-                               $char = $1.'\\'.$2;
+                               $char = $1 . '\\' . $2;
                             }
                             elsif ($char =~ m/\A [.|)] \z/oxms) {
                                 $char = '\\' . $char;
@@ -568,7 +567,7 @@ sub Ebig5plus::ignorecase(@) {
                         }
 
                         # [^...]
-                        splice @char, $left, $right-$left+1, '(?!' . join('|', @charlist) . ')(?:[\x81-\xFE][\x00-\xFF] | [\x00-\xFF])';
+                        splice @char, $left, $right-$left+1, '(?!' . join('|', @charlist) . ')(?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])';
 
                         $i = $left;
                         last;
@@ -634,29 +633,22 @@ sub Ebig5plus::ignorecase(@) {
 #
 sub _charlist_tr {
 
-    my @char = @_;
+    local $_ = shift @_;
 
     # unescape character
-    for (my $i=0; $i <= $#char; $i++) {
-        next if not defined $char[$i];
-
-        # escape - to ...
-        if ($char[$i] eq '-') {
-            if ((0 < $i) and ($i < $#char)) {
-                $char[$i] = '...';
-            }
+    my @char = ();
+    while (not m/\G \z/oxmsgc) {
+        if (m/\G \\ ([0-7]{2,3}) /oxmsgc) {
+            push @char, CORE::chr(oct $1);
         }
-        elsif ($char[$i] =~ m/\A \\ ([0-7]{2,3}) \z/oxms) {
-            $char[$i] = CORE::chr(oct $1);
+        elsif (m/\G \\x ([0-9A-Fa-f]{1,2}) /oxmsgc) {
+            push @char, CORE::chr(hex $1);
         }
-        elsif ($char[$i] =~ m/\A \\x ([0-9A-Fa-f]{2}) \z/oxms) {
-            $char[$i] = CORE::chr(hex $1);
+        elsif (m/\G \\c ([\x40-\x5F]) /oxmsgc) {
+            push @char, CORE::chr(CORE::ord($1) & 0x1F);
         }
-        elsif ($char[$i] =~ m/\A \\c ([\x40-\x5F]) \z/oxms) {
-            $char[$i] = CORE::chr(CORE::ord($1) & 0x1F);
-        }
-        elsif ($char[$i] =~ m/\A (\\ [0nrtfbae]) \z/oxms) {
-            $char[$i] = {
+        elsif (m/\G (\\ [0nrtfbae]) /oxmsgc) {
+            push @char, {
                 '\0' => "\0",
                 '\n' => "\n",
                 '\r' => "\r",
@@ -667,24 +659,22 @@ sub _charlist_tr {
                 '\e' => "\e",
             }->{$1};
         }
-        elsif ($char[$i] =~ m/\A \\ ([\x81-\xFE][\x00-\xFF] | [\x00-\xFF]) \z/oxms) {
-            $char[$i] = $1;
+        elsif (m/\G \\ ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxmsgc) {
+            push @char, $1;
+        }
+        elsif (m/\G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxmsgc) {
+            push @char, $1;
         }
     }
 
     # join separated double octet
-    for (my $i=0; $i <= $#char-1; $i++) {
-        if ($char[$i] =~ m/\A [\x81-\xFE] \z/oxms) {
-            $char[$i] .= $char[$i+1];
-            splice @char, $i+1, 1;
-        }
-    }
+    @char = join('',@char) =~ m/\G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxmsg;
 
     # open character list
     for (my $i=$#char-1; $i >= 1; ) {
 
         # escaped -
-        if ($char[$i] eq '...') {
+        if (($char[$i] eq '-') and (0 < $i) and ($i < $#char-1)) {
             my @range = ();
 
             # range of single octet code
@@ -706,8 +696,8 @@ sub _charlist_tr {
 
             # range of double octet code
             elsif (
-                ($char[$i-1] =~ m/\A [\x81-\xFE] [\x00-\xFF] \z/oxms) and
-                ($char[$i+1] =~ m/\A [\x81-\xFE] [\x00-\xFF] \z/oxms)
+                ($char[$i-1] =~ m/\A [\x81-\xFE][\x00-\xFF] \z/oxms) and
+                ($char[$i+1] =~ m/\A [\x81-\xFE][\x00-\xFF] \z/oxms)
             ) {
                 my($begin1,$begin2) = unpack 'CC', $char[$i-1];
                 my($end1,$end2)     = unpack 'CC', $char[$i+1];
@@ -762,7 +752,7 @@ sub _charlist_qr {
         elsif ($char[$i] =~ m/\A \\ ([0-7]{2,3}) \z/oxms) {
             $char[$i] = CORE::chr oct $1;
         }
-        elsif ($char[$i] =~ m/\A \\x ([0-9A-Fa-f]{2}) \z/oxms) {
+        elsif ($char[$i] =~ m/\A \\x ([0-9A-Fa-f]{1,2}) \z/oxms) {
             $char[$i] = CORE::chr hex $1;
         }
         elsif ($char[$i] =~ m/\A \\x \{ ([0-9A-Fa-f]{1,2}) \} \z/oxms) {
@@ -796,7 +786,7 @@ sub _charlist_qr {
                 '\W' => '(?:[\x81-\xFE][\x00-\xFF]|[^\w])',
             }->{$1};
         }
-        elsif ($char[$i] =~ m/\A \\ ([\x81-\xFE][\x00-\xFF] | [\x00-\xFF]) \z/oxms) {
+        elsif ($char[$i] =~ m/\A \\ ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) \z/oxms) {
             $char[$i] = $1;
         }
     }
@@ -861,8 +851,8 @@ sub _charlist_qr {
 
             # range of double octet code
             elsif (
-                ($char[$i-1] =~ m/\A [\x81-\xFE] [\x00-\xFF] \z/oxms) and
-                ($char[$i+1] =~ m/\A [\x81-\xFE] [\x00-\xFF] \z/oxms)
+                ($char[$i-1] =~ m/\A [\x81-\xFE][\x00-\xFF] \z/oxms) and
+                ($char[$i+1] =~ m/\A [\x81-\xFE][\x00-\xFF] \z/oxms)
             ) {
                 my($begin1,$begin2) = unpack 'CC', $char[$i-1];
                 my($end1,  $end2)   = unpack 'CC', $char[$i+1];
@@ -952,8 +942,8 @@ sub _charlist_qr {
         elsif (m/\A ([\x00-\x21\x7F-\xA0\xE0-\xFF]) \z/oxms) {
             $_ = sprintf(q{\\x%02X}, CORE::ord $1);
         }
-        elsif (m/\A ([\x00-\xFF]) \z/oxms) {
-            $_ = quotemeta $1;
+        elsif (m/\A [\x00-\xFF] \z/oxms) {
+            $_ = quotemeta $_;
         }
     }
     for (@charlist) {
@@ -1002,7 +992,7 @@ sub _charlist_not_qr {
         elsif ($char[$i] =~ m/\A \\ ([0-7]{2,3}) \z/oxms) {
             $char[$i] = CORE::chr oct $1;
         }
-        elsif ($char[$i] =~ m/\A \\x ([0-9A-Fa-f]{2}) \z/oxms) {
+        elsif ($char[$i] =~ m/\A \\x ([0-9A-Fa-f]{1,2}) \z/oxms) {
             $char[$i] = CORE::chr hex $1;
         }
         elsif ($char[$i] =~ m/\A \\x \{ ([0-9A-Fa-f]{1,2}) \} \z/oxms) {
@@ -1036,7 +1026,7 @@ sub _charlist_not_qr {
                 '\W' => '(?:[\x81-\xFE][\x00-\xFF]|[^\w])',
             }->{$1};
         }
-        elsif ($char[$i] =~ m/\A \\ ([\x81-\xFE][\x00-\xFF] | [\x00-\xFF]) \z/oxms) {
+        elsif ($char[$i] =~ m/\A \\ ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) \z/oxms) {
             $char[$i] = $1;
         }
     }
@@ -1101,8 +1091,8 @@ sub _charlist_not_qr {
 
             # range of double octet code
             elsif (
-                ($char[$i-1] =~ m/\A [\x81-\xFE] [\x00-\xFF] \z/oxms) and
-                ($char[$i+1] =~ m/\A [\x81-\xFE] [\x00-\xFF] \z/oxms)
+                ($char[$i-1] =~ m/\A [\x81-\xFE][\x00-\xFF] \z/oxms) and
+                ($char[$i+1] =~ m/\A [\x81-\xFE][\x00-\xFF] \z/oxms)
             ) {
                 my($begin1,$begin2) = unpack 'CC', $char[$i-1];
                 my($end1,  $end2)   = unpack 'CC', $char[$i+1];
@@ -1192,7 +1182,7 @@ sub _charlist_not_qr {
         elsif (m/\A ([\x00-\x21\x7F-\xA0\xE0-\xFF]) \z/oxms) {
             $_ = sprintf(q{\\x%02X}, CORE::ord $1);
         }
-        elsif (m/\A ([\x00-\xFF]) \z/oxms) {
+        elsif (m/\A [\x00-\xFF] \z/oxms) {
             $_ = quotemeta $_;
         }
     }
@@ -1288,7 +1278,7 @@ sub Ebig5plus::reverse(@) {
         return CORE::reverse @_;
     }
     else {
-        return join '', CORE::reverse(join('',@_) =~ m/\G ([\x81-\xFE][\x00-\xFF] | [\x00-\xFF]) /oxmsg);
+        return join '', CORE::reverse(join('',@_) =~ m/\G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxmsg);
     }
 }
 
@@ -2065,7 +2055,7 @@ sub Ebig5plus::T(;*@) {
             if ($block =~ /[\000\377]/oxms) {
                 $T = '';
             }
-            elsif (($block =~ tr/\000-\007\013\016-\032\034-\037\377//) * 10 > length $block) {
+            elsif (($block =~ tr/\000-\007\013\016-\032\034-\037\377//) * 10 > CORE::length $block) {
                 $T = '';
             }
         }
@@ -2090,7 +2080,7 @@ sub Ebig5plus::T(;*@) {
             if ($block =~ /[\000\377]/oxms) {
                 $T = '';
             }
-            elsif (($block =~ tr/\000-\007\013\016-\032\034-\037\377//) * 10 > length $block) {
+            elsif (($block =~ tr/\000-\007\013\016-\032\034-\037\377//) * 10 > CORE::length $block) {
                 $T = '';
             }
         }
@@ -2131,7 +2121,7 @@ sub Ebig5plus::B(;*@) {
             if ($block =~ /[\000\377]/oxms) {
                 $B = 1;
             }
-            elsif (($block =~ tr/\000-\007\013\016-\032\034-\037\377//) * 10 > length $block) {
+            elsif (($block =~ tr/\000-\007\013\016-\032\034-\037\377//) * 10 > CORE::length $block) {
                 $B = 1;
             }
         }
@@ -2156,7 +2146,7 @@ sub Ebig5plus::B(;*@) {
             if ($block =~ /[\000\377]/oxms) {
                 $B = 1;
             }
-            elsif (($block =~ tr/\000-\007\013\016-\032\034-\037\377//) * 10 > length $block) {
+            elsif (($block =~ tr/\000-\007\013\016-\032\034-\037\377//) * 10 > CORE::length $block) {
                 $B = 1;
             }
         }
@@ -2799,7 +2789,7 @@ sub Ebig5plus::T_() {
         if ($block =~ /[\000\377]/oxms) {
             $T = '';
         }
-        elsif (($block =~ tr/\000-\007\013\016-\032\034-\037\377//) * 10 > length $block) {
+        elsif (($block =~ tr/\000-\007\013\016-\032\034-\037\377//) * 10 > CORE::length $block) {
             $T = '';
         }
     }
@@ -2833,7 +2823,7 @@ sub Ebig5plus::B_() {
         if ($block =~ /[\000\377]/oxms) {
             $B = 1;
         }
-        elsif (($block =~ tr/\000-\007\013\016-\032\034-\037\377//) * 10 > length $block) {
+        elsif (($block =~ tr/\000-\007\013\016-\032\034-\037\377//) * 10 > CORE::length $block) {
             $B = 1;
         }
     }
@@ -3020,7 +3010,7 @@ OUTER:
         my $tail;
 
         # if argument is within quotes strip em and do no globbing
-        if ($expr =~ m/\A " ((?:[\x81-\xFE][\x00-\xFF] | [^\x81-\xFE])*) " \z/oxms) {
+        if ($expr =~ m/\A " ((?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])*) " \z/oxms) {
             $expr = $1;
             if ($cond eq 'd') {
                 if (Ebig5plus::d $expr) {
@@ -3089,7 +3079,7 @@ OUTER:
         }
 
         my $pattern = '';
-        while ($expr =~ m/ \G ([\x81-\xFE][\x00-\xFF] | [\x00-\xFF]) /oxgc) {
+        while ($expr =~ m/ \G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxgc) {
             $pattern .= {
                 '*' => '(?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])*',
             ### '?' => '(?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])',   # UNIX style
@@ -3147,7 +3137,7 @@ INNER:
             # Failed, add a trailing dot and try again, but only...
 
             if (Ebig5plus::index($leaf,'.') == -1 and   # if name does not have a dot in it *and*
-                length($leaf) <= 8 and              # name is shorter than or equal to 8 chars *and*
+                CORE::length($leaf) <= 8 and        # name is shorter than or equal to 8 chars *and*
                 Ebig5plus::index($pattern,'\\.') != -1  # pattern has a dot.
             ) {
                 if (&$matchsub("$leaf.")) {
@@ -3173,8 +3163,8 @@ sub _parse_line {
     $line .= ' ';
     my @piece = ();
     while ($line =~ m{
-        " ( (?: [\x81-\xFE][\x00-\xFF] | [^"]   )*  ) " \s+ |
-          ( (?: [\x81-\xFE][\x00-\xFF] | [^"\s] )*  )   \s+
+        " ( (?: [\x81-\xFE][\x00-\xFF]|[^"]   )*  ) " \s+ |
+          ( (?: [\x81-\xFE][\x00-\xFF]|[^"\s] )*  )   \s+
         }oxmsg
     ) {
         push @piece, defined($1) ? $1 : $2;
@@ -3192,7 +3182,7 @@ sub _parse_path {
     $path .= '/';
     my @subpath = ();
     while ($path =~ m{
-        ((?: [\x81-\xFE][\x00-\xFF] | [^/\\] )+?) [/\\] }oxmsg
+        ((?: [\x81-\xFE][\x00-\xFF]|[^/\\] )+?) [/\\] }oxmsg
     ) {
         push @subpath, $1;
     }
@@ -3331,12 +3321,22 @@ sub Ebig5plus::unlink(@) {
             $unlink++;
         }
         elsif (_MSWin32_5Cended_path($_)) {
-            my @char = /\G ([\x81-\xFE][\x00-\xFF] | [\x00-\xFF]) /oxmsg;
+            my @char = /\G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxmsg;
             my $file = join '', map {{'/' => '\\'}->{$_} || $_} @char;
-            if ($file =~ m/ \A (?:[\x81-\xFE][\x00-\xFF]|[^\x81-\xFE])*? [ ] /oxms) {
+            if ($file =~ m/ \A (?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])*? [ ] /oxms) {
                 $file = qq{"$file"};
             }
-            system(qq{del $file >NUL 2>NUL});
+
+            # P.565 Cleaning Up Your Environment
+            # in Chapter 23: Security
+            # of ISBN 0-596-00027-8 Programming Perl Third Edition.
+            # (and so on)
+
+            # local $ENV{'PATH'} = '.';
+            local @ENV{qw(IFS CDPATH ENV BASH_ENV)};
+
+            system qq{del $file >NUL 2>NUL};
+
             my $fh = Symbol::gensym();
             if (sysopen $fh, $_, O_RDONLY) {
                 close $fh;
@@ -3369,16 +3369,16 @@ sub Ebig5plus::chdir(;$) {
             return CORE::chdir $dir;
         }
         elsif ($] =~ /^5\.006/) {
-            croak "perl$] can't chdir $dir (chr(0x5C) ended path)";
+            croak "perl$] can't chdir to $dir (chr(0x5C) ended path)";
         }
         elsif ($] =~ /^5\.008/) {
-            croak "perl$] can't chdir $dir (chr(0x5C) ended path)";
+            croak "perl$] can't chdir to $dir (chr(0x5C) ended path)";
         }
         elsif ($] =~ /^5\.010/) {
-            croak "perl$] can't chdir $dir (chr(0x5C) ended path)";
+            croak "perl$] can't chdir to $dir (chr(0x5C) ended path)";
         }
         else {
-            croak "perl$] can't chdir $dir (chr(0x5C) ended path)";
+            croak "perl$] can't chdir to $dir (chr(0x5C) ended path)";
         }
     }
     else {
@@ -3393,13 +3393,214 @@ sub _MSWin32_5Cended_path {
 
     if ((@_ >= 1) and ($_[0] ne '')) {
         if ($^O =~ /\A (?: MSWin32 | NetWare | symbian | dos ) \z/oxms) {
-            my @char = $_[0] =~ /\G ([\x81-\xFE][\x00-\xFF] | [\x00-\xFF]) /oxmsg;
+            my @char = $_[0] =~ /\G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxmsg;
             if ($char[-1] =~ m/\A [\x81-\xFE][\x5C] \z/oxms) {
                 return 1;
             }
         }
     }
     return;
+}
+
+#
+# do Big5Plus file
+#
+sub Ebig5plus::do($) {
+    my($filename) = @_;
+
+    my $realfilename;
+    my $result;
+ITER_DO:
+    {
+        for my $prefix (@INC) {
+            $realfilename = "$prefix/$filename";
+            if (Ebig5plus::f($realfilename)) {
+
+                my $script = '';
+
+                my $e_mtime      = (Ebig5plus::stat("$realfilename.e"))[9];
+                my $mtime        = (Ebig5plus::stat($realfilename))[9];
+                my $module_mtime = (Ebig5plus::stat("$FindBin::Bin/Big5Plus.pm"))[9];
+                if (Ebig5plus::e("$realfilename.e") and ($mtime < $e_mtime) and ($module_mtime < $e_mtime)) {
+                    my $fh = Symbol::gensym();
+                    sysopen $fh, "$realfilename.e", O_RDONLY;
+                    local $/ = undef; # slurp mode
+                    $script = <$fh>;
+                    close $fh;
+                }
+                else {
+                    my $fh = Symbol::gensym();
+                    sysopen $fh, $realfilename, O_RDONLY;
+                    local $/ = undef; # slurp mode
+                    $script = <$fh>;
+                    close $fh;
+
+                    if ($script =~ m/^ \s* use \s+ Big5Plus \s* ([^;]*) ; \s* \n? $/oxms) {
+                        CORE::require Big5Plus;
+                        $script = Big5Plus::escape_script($script);
+                        my $fh = Symbol::gensym();
+                        sysopen $fh, "$realfilename.e", O_WRONLY | O_TRUNC | O_CREAT;
+                        print {$fh} $script;
+                        close $fh;
+                    }
+                }
+
+                no strict;
+                local $^W = $_warning;
+                local $@;
+                $result = eval $script;
+
+                last ITER_DO;
+            }
+        }
+    }
+    $INC{$filename} = $realfilename;
+    return $result;
+}
+
+#
+# require Big5Plus file
+#
+
+# require
+# in Chapter 3: Functions
+# of ISBN 1-56592-149-6 Programming Perl, Second Edition.
+
+sub Ebig5plus::require(;$) {
+    local $_ = shift if @_;
+    return 1 if $INC{$_};
+
+    my $realfilename;
+    my $result;
+ITER_REQUIRE:
+    {
+        for my $prefix (@INC) {
+            $realfilename = "$prefix/$_";
+            if (Ebig5plus::f($realfilename)) {
+
+                my $script = '';
+
+                my $e_mtime      = (Ebig5plus::stat("$realfilename.e"))[9];
+                my $mtime        = (Ebig5plus::stat($realfilename))[9];
+                my $module_mtime = (Ebig5plus::stat("$FindBin::Bin/Big5Plus.pm"))[9];
+                if (Ebig5plus::e("$realfilename.e") and ($mtime < $e_mtime) and ($module_mtime < $e_mtime)) {
+                    my $fh = Symbol::gensym();
+                    sysopen($fh, "$realfilename.e", O_RDONLY) or croak "Can't open file: $realfilename.e";
+                    local $/ = undef; # slurp mode
+                    $script = <$fh>;
+                    close($fh) or croak "Can't close file: $realfilename";
+                }
+                else {
+                    my $fh = Symbol::gensym();
+                    sysopen($fh, $realfilename, O_RDONLY) or croak "Can't open file: $realfilename";
+                    local $/ = undef; # slurp mode
+                    $script = <$fh>;
+                    close($fh) or croak "Can't close file: $realfilename";
+
+                    if ($script =~ m/^ \s* use \s+ Big5Plus \s* ([^;]*) ; \s* \n? $/oxms) {
+                        CORE::require Big5Plus;
+                        $script = Big5Plus::escape_script($script);
+                        my $fh = Symbol::gensym();
+                        sysopen($fh, "$realfilename.e", O_WRONLY | O_TRUNC | O_CREAT) or croak "Can't open file: $realfilename.e";
+                        print {$fh} $script;
+                        close($fh) or croak "Can't close file: $realfilename";
+                    }
+                }
+
+                no strict;
+                local $^W = $_warning;
+                $result = eval $script;
+
+                last ITER_REQUIRE;
+            }
+        }
+        croak "Can't find $_ in \@INC";
+    }
+    croak $@ if $@;
+    croak "$_ did not return true value" unless $result;
+    $INC{$_} = $realfilename;
+    return $result;
+}
+
+#
+# Big5Plus length by character
+#
+sub Big5Plus::length {
+
+    local $_ = shift if @_;
+
+    return scalar m/\G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxmsg;
+}
+
+#
+# Big5Plus substr by character
+#
+sub Big5Plus::substr ($$;$$) {
+
+    if (defined $_[3]) {
+        if (defined $_[4]) {
+            my(undef,$offset,$length,$replacement) = @_;
+            if ($_[0] =~ s/\A ((?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF]){$offset}) ((?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF]){0,$length}) \z/$1$replacement/xms) {
+                return $2;
+            }
+        }
+        else {
+            my($expr,$offset,$length) = @_;
+            if ($expr =~ m/\A (?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF]){$offset} ((?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF]){0,$length}) \z/xms) {
+                return $1;
+            }
+        }
+    }
+    else {
+        my($expr,$offset) = @_;
+        if ($expr =~ m/\A (?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF]){$offset} (.*) \z/xms) {
+            return $1;
+        }
+    }
+
+    confess "$0: Big5Plus::substr outside of string";
+}
+
+#
+# Big5Plus index by character
+#
+sub Big5Plus::index($$;$) {
+
+    my $index;
+    if (@_ == 3) {
+        $index = Ebig5plus::index($_[0],$_[1],$_[2]);
+    }
+    else {
+        $index = Ebig5plus::index($_[0],$_[1]);
+    }
+
+    if ($index == -1) {
+        return -1;
+    }
+    else {
+        return Big5Plus::length(CORE::substr $_[0], 0, $index);
+    }
+}
+
+#
+# Big5Plus rindex by character
+#
+sub Big5Plus::rindex($$;$) {
+
+    my $rindex;
+    if (@_ == 3) {
+        $rindex = Ebig5plus::rindex($_[0],$_[1],$_[2]);
+    }
+    else {
+        $rindex = Ebig5plus::rindex($_[0],$_[1]);
+    }
+
+    if ($rindex == -1) {
+        return -1;
+    }
+    else {
+        return Big5Plus::length(CORE::substr $_[0], 0, $rindex);
+    }
 }
 
 # pop warning
@@ -3446,6 +3647,13 @@ Ebig5plus - Run-time routines for Big5Plus.pm
     Ebig5plus::stat_;
     Ebig5plus::unlink(...);
     Ebig5plus::chdir(...);
+    Ebig5plus::do(...);
+    Ebig5plus::require(...);
+
+    Big5Plus::length(...);
+    Big5Plus::substr(...);
+    Big5Plus::index(...);
+    Big5Plus::rindex(...);
 
   # "no Ebig5plus;" not supported
 
@@ -3552,17 +3760,17 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
   Returns the position of the first occurrence of $substr in Big5Plus $string.
   The start, if specified, specifies the $position to start looking in the Big5Plus
   $string. Positions are integer numbers based at 0. If the substring is not found,
-  the index function returns -1.
+  the Ebig5plus::index function returns -1.
 
 =item Reverse index string
 
   $pos = Ebig5plus::rindex($string,$substr,$position);
   $pos = Ebig5plus::rindex($string,$substr);
 
-  Works just like index except that it returns the position of the last occurence
-  of $substr in Big5Plus $string (a reverse index). The function returns -1 if not
-  found. $position, if specified, is the rightmost position that may be returned,
-  i.e., how far in the Big5Plus string the function can search.
+  Works just like Ebig5plus::index except that it returns the position of the last
+  occurence of $substr in Big5Plus $string (a reverse index). The function returns
+  -1 if not found. $position, if specified, is the rightmost position that may be
+  returned, i.e., how far in the Big5Plus string the function can search.
 
 =item Lower case string
 
@@ -3599,8 +3807,9 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
   $chr = Ebig5plus::chr_;
 
   This function returns the character represented by that $code in the character
-  set. For example, chr(65) is "A" in either ASCII or Big5Plus, and chr(0x82a0)
-  is a Big5Plus HIRAGANA LETTER A. For the reverse of chr, use ord.
+  set. For example, Ebig5plus::chr(65) is "A" in either ASCII or Big5Plus, and
+  Ebig5plus::chr(0x82a0) is a Big5Plus HIRAGANA LETTER A. For the reverse of Ebig5plus::chr,
+  use Ebig5plus::ord.
 
 =item Order of Character
 
@@ -3618,12 +3827,12 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
   In list context, this function returns a list value consisting of the elements of
   @list in the opposite order. The function can be used to create descending sequences:
 
-  for (reverse 1 .. 10) { ... }
+  for (Ebig5plus::reverse(1 .. 10)) { ... }
 
   Because of the way hashes flatten into lists when passed as a @list, reverse can also
   be used to invert a hash, presuming the values are unique:
 
-  %barfoo = reverse %foobar;
+  %barfoo = Ebig5plus::reverse(%foobar);
 
   In scalar context, the function concatenates all the elements of LIST and then returns
   the reverse of that resulting string, character by character.
@@ -3725,11 +3934,11 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
   @lstat = Ebig5plus::lstat($file);
   @lstat = Ebig5plus::lstat_;
 
-  Like stat, returns information on file, except that if file is a symbolic link,
-  lstat returns information about the link; stat returns information about the
-  file pointed to by the link. (If symbolic links are unimplemented on your
-  system, a normal stat is done instead.) If file is omitted, returns information
-  on file given in $_.
+  Like Ebig5plus::stat, returns information on file, except that if file is a symbolic
+  link, Ebig5plus::lstat returns information about the link; Ebig5plus::stat returns
+  information about the file pointed to by the link. (If symbolic links are
+  unimplemented on your system, a normal Ebig5plus::stat is done instead.) If file is
+  omitted, returns information on file given in $_.
   This function function when the filename ends with chr(0x5C) on MSWin32.
 
 =item Open directory handle
@@ -3804,6 +4013,172 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
   This function can't function when the $dirname ends with chr(0x5C) on perl5.006,
   perl5.008, perl5.010 on MSWin32.
+
+=item do file
+
+  $return = Ebig5plus::do($file);
+
+  The do FILE form uses the value of FILE as a filename and executes the contents
+  of the file as a Perl script. Its primary use is (or rather was) to include
+  subroutines from a Perl subroutine library, so that:
+
+  Ebig5plus::do('stat.pl');
+
+  is rather like: 
+
+  scalar eval `cat stat.pl`;   # `type stat.pl` on Windows
+
+  except that Ebig5plus::do is more efficient, more concise, keeps track of the current
+  filename for error messages, searches all the directories listed in the @INC
+  array, and updates %INC if the file is found.
+  It also differs in that code evaluated with Ebig5plus::do FILE can not see lexicals in
+  the enclosing scope, whereas code in eval FILE does. It's the same, however, in
+  that it reparses the file every time you call it -- so you might not want to do
+  this inside a loop unless the filename itself changes at each loop iteration.
+
+  If Ebig5plus::do can't read the file, it returns undef and sets $! to the error. If 
+  Ebig5plus::do can read the file but can't compile it, it returns undef and sets an
+  error message in $@. If the file is successfully compiled, do returns the value of
+  the last expression evaluated.
+
+  Inclusion of library modules (which have a mandatory .pm suffix) is better done
+  with the use and require operators, which also Ebig5plus::do error checking and raise
+  an exception if there's a problem. They also offer other benefits: they avoid
+  duplicate loading, help with object-oriented programming, and provide hints to the
+  compiler on function prototypes.
+
+  But Ebig5plus::do FILE is still useful for such things as reading program configuration
+  files. Manual error checking can be done this way:
+
+  # read in config files: system first, then user
+  for $file ("/usr/share/proggie/defaults.rc", "$ENV{HOME}/.someprogrc") {
+      unless ($return = Ebig5plus::do($file)) {
+          warn "couldn't parse $file: $@" if $@;
+          warn "couldn't Ebig5plus::do($file): $!" unless defined $return;
+          warn "couldn't run $file"            unless $return;
+      }
+  }
+
+  A long-running daemon could periodically examine the timestamp on its configuration
+  file, and if the file has changed since it was last read in, the daemon could use
+  Ebig5plus::do to reload that file. This is more tidily accomplished with Ebig5plus::do than
+  with Ebig5plus::require.
+
+=item require file
+
+  Ebig5plus::require($file);
+  Ebig5plus::require();
+
+  This function asserts a dependency of some kind on its argument. If an argument is not
+  supplied, $_ is used.
+
+  If the argument is a string, Ebig5plus::require loads and executes the Perl code found in
+  the separate file whose name is given by the string. This is similar to performing a
+  Ebig5plus::do on a file, except that Ebig5plus::require checks to see whether the library
+  file has been loaded already and raises an exception if any difficulties are
+  encountered. (It can thus be used to express file dependencies without worrying about
+  duplicate compilation.) Like its cousins Ebig5plus::do and use, Ebig5plus::require knows how
+  to search the include path stored in the @INC array and to update %INC upon success.
+
+  The file must return true as the last value to indicate successful execution of any
+  initialization code, so it's customary to end such a file with 1; unless you're sure
+  it'll return true otherwise.
+
+  See also do file.
+
+=item length by Big5Plus character
+
+  $length = Big5Plus::length($string);
+  $length = Big5Plus::length();
+
+  This function returns the length in characters of the scalar value $string. If $string
+  is omitted, it returns the Big5Plus::length of $_.
+
+  Do not try to use length to find the size of an array or hash. Use scalar @array for
+  the size of an array, and scalar keys %hash for the number of key/value pairs in a
+  hash. (The scalar is typically omitted when redundant.)
+
+  To find the length of a string in bytes rather than characters, say:
+
+  $blen = length $string;
+
+  or
+
+  $blen = CORE::length $string;
+
+=item substr by Big5Plus character
+
+  $substr = Big5Plus::substr($string,$offset,$length,$replacement);
+  $substr = Big5Plus::substr($string,$offset,$length);
+  $substr = Big5Plus::substr($string,$offset);
+
+  This function extracts a substring out of the string given by $string and returns
+  it. The substring is extracted starting at $offset characters from the front of
+  the string.
+  If $offset is negative, the substring starts that far from the end of the string
+  instead. If $length is omitted, everything to the end of the string is returned.
+  If $length is negative, the length is calculated to leave that many characters off
+  the end of the string. Otherwise, $length indicates the length of the substring to
+  extract, which is sort of what you'd expect.
+
+  An alternative to using Big5Plus::substr as an lvalue is to specify the $replacement
+  string as the fourth argument. This allows you to replace parts of the $string and
+  return what was there before in one operation, just as you can with splice. The next
+  example also replaces the last character of $var with "Curly" and puts that replaced
+  character into $oldstr: 
+
+  $oldstr = Big5Plus::substr($var, -1, 1, "Curly");
+
+  If you assign something shorter than the length of your substring, the string will
+  shrink, and if you assign something longer than the length, the string will grow to
+  accommodate it. To keep the string the same length, you may need to pad or chop your
+  value using sprintf or the x operator. If you attempt to assign to an unallocated
+  area past the end of the string, Big5Plus::substr raises an exception.
+
+  To prepend the string "Larry" to the current value of $_, use:
+
+  Big5Plus::substr($var, 0, 0, "Larry");
+
+  To instead replace the first character of $_ with "Moe", use:
+
+  Big5Plus::substr($var, 0, 1, "Moe");
+
+  And finally, to replace the last character of $var with "Curly", use:
+
+  Big5Plus::substr($var, -1, 0, "Curly");
+
+=item index by Big5Plus character
+
+  $index = Big5Plus::index($string,$substring,$offset);
+  $index = Big5Plus::index($string,$substring);
+
+  This function searches for one string within another. It returns the position of
+  the first occurrence of $substring in $string. The $offset, if specified, says how
+  many characters from the start to skip before beginning to look. Positions are
+  based at 0. If the substring is not found, the function returns one less than the
+  base, ordinarily -1. To work your way through a string, you might say:
+
+  $pos = -1;
+  while (($pos = Big5Plus::index($string, $lookfor, $pos)) > -1) {
+      print "Found at $pos\n";
+      $pos++;
+  }
+
+=item rindex by Big5Plus character
+
+  $rindex = Big5Plus::rindex($string,$substring,$position);
+  $rindex = Big5Plus::rindex($string,$substring);
+
+  This function works just like Big5Plus::index except that it returns the position of
+  the last occurrence of $substring in $string (a reverse index). The function
+  returns -1 if not $substring is found. $position, if specified, is the rightmost
+  position that may be returned. To work your way through a string backward, say:
+
+  $pos = Big5Plus::length($string);
+  while (($pos = Big5Plus::rindex($string, $lookfor, $pos)) >= 0) {
+      print "Found at $pos\n";
+      $pos--;
+  }
 
 =back
 

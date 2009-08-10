@@ -1,144 +1,195 @@
-@rem = '--*-Perl-*--
 @echo off
+rem version 1.0.5
+rem ======================================================================
+rem 
+rem  perl58 -  execute perlscript on the perl5.8 without %PATH% settings
+rem 
+rem  Copyright (c) 2008, 2009 INABA Hitoshi (ina@cpan.org)
+rem 
+rem ======================================================================
+
 if "%OS%" == "Windows_NT" goto WinNT
-perl -x -S "%0" %1 %2 %3 %4 %5 %6 %7 %8 %9
-goto endofperl
+
+:Win95
+  if "%PERL58BIN%" == "" goto SetWin95
+  %PERL58BIN% %1 %2 %3 %4 %5 %6 %7 %8 %9
+goto END
+
+:SetWin95
+  if not exist C:\AUTOEXEC.BAT goto L1
+  type C:\AUTOEXEC.BAT | find "SET PERL58BIN=" > nul
+  if not %ERRORLEVEL% == 0 goto L1
+  echo -----------------------------------------------------------
+  echo Description "SET PERL58BIN=" already exists in C:\AUTOEXEC.BAT.
+  echo Reboot computer to enable PERL58BIN, and try again.
+  echo -----------------------------------------------------------
+goto END
+
+:L1
+  if exist Z:\Perl58\bin\perl.exe echo SET PERL58BIN=Z:\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist Y:\Perl58\bin\perl.exe echo SET PERL58BIN=Y:\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist X:\Perl58\bin\perl.exe echo SET PERL58BIN=X:\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist W:\Perl58\bin\perl.exe echo SET PERL58BIN=W:\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist V:\Perl58\bin\perl.exe echo SET PERL58BIN=V:\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist U:\Perl58\bin\perl.exe echo SET PERL58BIN=U:\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist T:\Perl58\bin\perl.exe echo SET PERL58BIN=T:\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist S:\Perl58\bin\perl.exe echo SET PERL58BIN=S:\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist R:\Perl58\bin\perl.exe echo SET PERL58BIN=R:\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist Q:\Perl58\bin\perl.exe echo SET PERL58BIN=Q:\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist P:\Perl58\bin\perl.exe echo SET PERL58BIN=P:\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist O:\Perl58\bin\perl.exe echo SET PERL58BIN=O:\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist N:\Perl58\bin\perl.exe echo SET PERL58BIN=N:\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist M:\Perl58\bin\perl.exe echo SET PERL58BIN=M:\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist L:\Perl58\bin\perl.exe echo SET PERL58BIN=L:\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist K:\Perl58\bin\perl.exe echo SET PERL58BIN=K:\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist J:\Perl58\bin\perl.exe echo SET PERL58BIN=J:\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist I:\Perl58\bin\perl.exe echo SET PERL58BIN=I:\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist H:\Perl58\bin\perl.exe echo SET PERL58BIN=H:\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist G:\Perl58\bin\perl.exe echo SET PERL58BIN=G:\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist F:\Perl58\bin\perl.exe echo SET PERL58BIN=F:\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist E:\Perl58\bin\perl.exe echo SET PERL58BIN=E:\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist D:\Perl58\bin\perl.exe echo SET PERL58BIN=D:\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist C:\Perl58\bin\perl.exe echo SET PERL58BIN=C:\Perl58\bin\perl.exe>PERL58BIN.$$$
+
+  if exist Z:\strawberry\Perl58\bin\perl.exe echo SET PERL58BIN=Z:\strawberry\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist Y:\strawberry\Perl58\bin\perl.exe echo SET PERL58BIN=Y:\strawberry\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist X:\strawberry\Perl58\bin\perl.exe echo SET PERL58BIN=X:\strawberry\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist W:\strawberry\Perl58\bin\perl.exe echo SET PERL58BIN=W:\strawberry\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist V:\strawberry\Perl58\bin\perl.exe echo SET PERL58BIN=V:\strawberry\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist U:\strawberry\Perl58\bin\perl.exe echo SET PERL58BIN=U:\strawberry\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist T:\strawberry\Perl58\bin\perl.exe echo SET PERL58BIN=T:\strawberry\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist S:\strawberry\Perl58\bin\perl.exe echo SET PERL58BIN=S:\strawberry\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist R:\strawberry\Perl58\bin\perl.exe echo SET PERL58BIN=R:\strawberry\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist Q:\strawberry\Perl58\bin\perl.exe echo SET PERL58BIN=Q:\strawberry\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist P:\strawberry\Perl58\bin\perl.exe echo SET PERL58BIN=P:\strawberry\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist O:\strawberry\Perl58\bin\perl.exe echo SET PERL58BIN=O:\strawberry\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist N:\strawberry\Perl58\bin\perl.exe echo SET PERL58BIN=N:\strawberry\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist M:\strawberry\Perl58\bin\perl.exe echo SET PERL58BIN=M:\strawberry\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist L:\strawberry\Perl58\bin\perl.exe echo SET PERL58BIN=L:\strawberry\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist K:\strawberry\Perl58\bin\perl.exe echo SET PERL58BIN=K:\strawberry\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist J:\strawberry\Perl58\bin\perl.exe echo SET PERL58BIN=J:\strawberry\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist I:\strawberry\Perl58\bin\perl.exe echo SET PERL58BIN=I:\strawberry\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist H:\strawberry\Perl58\bin\perl.exe echo SET PERL58BIN=H:\strawberry\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist G:\strawberry\Perl58\bin\perl.exe echo SET PERL58BIN=G:\strawberry\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist F:\strawberry\Perl58\bin\perl.exe echo SET PERL58BIN=F:\strawberry\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist E:\strawberry\Perl58\bin\perl.exe echo SET PERL58BIN=E:\strawberry\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist D:\strawberry\Perl58\bin\perl.exe echo SET PERL58BIN=D:\strawberry\Perl58\bin\perl.exe>PERL58BIN.$$$
+  if exist C:\strawberry\Perl58\bin\perl.exe echo SET PERL58BIN=C:\strawberry\Perl58\bin\perl.exe>PERL58BIN.$$$
+
+  if exist PERL58BIN.$$$ goto L2
+
+  echo ***********************************************************
+  echo "\Perl58\bin\perl.exe" not found in C: to Z: drives.
+  echo ***********************************************************
+goto END
+
+:L2
+  echo ***********************************************************
+  echo Environment variable PERL58BIN not set.
+  echo Do you add following description to C:\AUTOEXEC.BAT?
+  echo 
+  type PERL58BIN.$$$
+  echo 
+  echo Press [Enter] to Yes continue, or [Ctrl]+[C] to No, quit.
+  echo ***********************************************************
+  pause
+  type PERL58BIN.$$$ >> C:\AUTOEXEC.BAT
+  del PERL58BIN.$$$
+  echo -----------------------------------------------------------
+  echo Reboot computer to enable PERL58BIN, and try again.
+  echo -----------------------------------------------------------
+goto END
+
 :WinNT
-perl -x -S "%0" %*
-if NOT "%COMSPEC%" == "%SystemRoot%\system32\cmd.exe" goto endofperl
-if %errorlevel% == 9009 echo You do not have Perl in your PATH.
-exit /b %errorlevel%
-goto endofperl
-@rem ';
-#!perl
-#line 15
-my $VERSION = "1.0.1"; undef @rem;
-######################################################################
-#
-# perl58 -  execute perlscript on the perl5.8 without %PATH% settings
-#
-# Copyright (c) 2008, 2009 INABA Hitoshi <ina@cpan.org>
-#
-######################################################################
+  if "%PERL58BIN%" == "" goto SetWinNT
+  %PERL58BIN% %*
+  exit /b %ERRORLEVEL%
+goto END
 
-use strict;
+:SetWinNT
+  if exist Z:\Perl58\bin\perl.exe echo "PERL58BIN"="Z:\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist Y:\Perl58\bin\perl.exe echo "PERL58BIN"="Y:\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist X:\Perl58\bin\perl.exe echo "PERL58BIN"="X:\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist W:\Perl58\bin\perl.exe echo "PERL58BIN"="W:\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist V:\Perl58\bin\perl.exe echo "PERL58BIN"="V:\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist U:\Perl58\bin\perl.exe echo "PERL58BIN"="U:\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist T:\Perl58\bin\perl.exe echo "PERL58BIN"="T:\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist S:\Perl58\bin\perl.exe echo "PERL58BIN"="S:\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist R:\Perl58\bin\perl.exe echo "PERL58BIN"="R:\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist Q:\Perl58\bin\perl.exe echo "PERL58BIN"="Q:\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist P:\Perl58\bin\perl.exe echo "PERL58BIN"="P:\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist O:\Perl58\bin\perl.exe echo "PERL58BIN"="O:\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist N:\Perl58\bin\perl.exe echo "PERL58BIN"="N:\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist M:\Perl58\bin\perl.exe echo "PERL58BIN"="M:\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist L:\Perl58\bin\perl.exe echo "PERL58BIN"="L:\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist K:\Perl58\bin\perl.exe echo "PERL58BIN"="K:\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist J:\Perl58\bin\perl.exe echo "PERL58BIN"="J:\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist I:\Perl58\bin\perl.exe echo "PERL58BIN"="I:\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist H:\Perl58\bin\perl.exe echo "PERL58BIN"="H:\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist G:\Perl58\bin\perl.exe echo "PERL58BIN"="G:\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist F:\Perl58\bin\perl.exe echo "PERL58BIN"="F:\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist E:\Perl58\bin\perl.exe echo "PERL58BIN"="E:\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist D:\Perl58\bin\perl.exe echo "PERL58BIN"="D:\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist C:\Perl58\bin\perl.exe echo "PERL58BIN"="C:\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
 
-# print usage
-unless (@ARGV) {
-    die <<END;
+  if exist Z:\strawberry\Perl58\bin\perl.exe echo "PERL58BIN"="Z:\\strawberry\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist Y:\strawberry\Perl58\bin\perl.exe echo "PERL58BIN"="Y:\\strawberry\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist X:\strawberry\Perl58\bin\perl.exe echo "PERL58BIN"="X:\\strawberry\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist W:\strawberry\Perl58\bin\perl.exe echo "PERL58BIN"="W:\\strawberry\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist V:\strawberry\Perl58\bin\perl.exe echo "PERL58BIN"="V:\\strawberry\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist U:\strawberry\Perl58\bin\perl.exe echo "PERL58BIN"="U:\\strawberry\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist T:\strawberry\Perl58\bin\perl.exe echo "PERL58BIN"="T:\\strawberry\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist S:\strawberry\Perl58\bin\perl.exe echo "PERL58BIN"="S:\\strawberry\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist R:\strawberry\Perl58\bin\perl.exe echo "PERL58BIN"="R:\\strawberry\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist Q:\strawberry\Perl58\bin\perl.exe echo "PERL58BIN"="Q:\\strawberry\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist P:\strawberry\Perl58\bin\perl.exe echo "PERL58BIN"="P:\\strawberry\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist O:\strawberry\Perl58\bin\perl.exe echo "PERL58BIN"="O:\\strawberry\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist N:\strawberry\Perl58\bin\perl.exe echo "PERL58BIN"="N:\\strawberry\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist M:\strawberry\Perl58\bin\perl.exe echo "PERL58BIN"="M:\\strawberry\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist L:\strawberry\Perl58\bin\perl.exe echo "PERL58BIN"="L:\\strawberry\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist K:\strawberry\Perl58\bin\perl.exe echo "PERL58BIN"="K:\\strawberry\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist J:\strawberry\Perl58\bin\perl.exe echo "PERL58BIN"="J:\\strawberry\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist I:\strawberry\Perl58\bin\perl.exe echo "PERL58BIN"="I:\\strawberry\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist H:\strawberry\Perl58\bin\perl.exe echo "PERL58BIN"="H:\\strawberry\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist G:\strawberry\Perl58\bin\perl.exe echo "PERL58BIN"="G:\\strawberry\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist F:\strawberry\Perl58\bin\perl.exe echo "PERL58BIN"="F:\\strawberry\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist E:\strawberry\Perl58\bin\perl.exe echo "PERL58BIN"="E:\\strawberry\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist D:\strawberry\Perl58\bin\perl.exe echo "PERL58BIN"="D:\\strawberry\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
+  if exist C:\strawberry\Perl58\bin\perl.exe echo "PERL58BIN"="C:\\strawberry\\Perl58\\bin\\perl.exe">PERL58BIN.$$$
 
-$0 ver.$VERSION
+  if exist PERL58BIN.$$$ goto L3
 
-usage:
+  echo ***********************************************************
+  echo "\Perl58\bin\perl.exe" not found in C: to Z: drives.
+  echo ***********************************************************
+goto END
 
-C:\\>$0 perlscript.pl ...
+:L3
+  echo ***********************************************************
+  echo Environment variable PERL58BIN not set.
+  echo Do you set following registry?
+  echo.
+  echo [HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager\Environment]
+  type PERL58BIN.$$$
+  echo.
+  echo Press [Enter] to Yes continue, or [Ctrl]+[C] to No, quit.
+  echo ***********************************************************
+  pause
+  ver | find "Windows NT" > nul
+  if     %ERRORLEVEL% == 0 echo REGEDIT4>PERL58BIN.REG
+  if not %ERRORLEVEL% == 0 echo Windows Registry Editor Version 5.00>PERL58BIN.REG
+  echo.>>PERL58BIN.REG
+  echo [HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager\Environment]>>PERL58BIN.REG
+  type PERL58BIN.$$$ >> PERL58BIN.REG
+  PERL58BIN.REG
+  del PERL58BIN.REG
+  del PERL58BIN.$$$
+  echo -----------------------------------------------------------
+  echo Reboot computer to enable PERL58BIN, and try again.
+  echo -----------------------------------------------------------
+goto END
 
-Find perl5.8 order by,
-  1st, C:\\Perl58\\bin\\perl.exe
-  2nd, D:\\Perl58\\bin\\perl.exe
-  3rd, E:\\Perl58\\bin\\perl.exe
-                :
-                :
-
-When found it, then execute perlscript on the its perl.exe.
-
-END
-}
-
-# quote by "" if include space
-@ARGV = map { / / ? qq{"$_"} : $_ } @ARGV;
-
-# if this script running under perl5.8
-if ($] =~ /^5\.008/) {
-    exit system($^X, @ARGV);
-}
-
-# if .conf file exists
-if (open(CONF,"$0.conf")) {
-    my $perlbin = <CONF>;
-    close CONF;
-    if (-e $perlbin) {
-        exit system($perlbin, @ARGV);
-    }
-}
-
-# find perl5.8 in the computer
-my @perlbin = ();
-eval <<'END';
-use Win32API::File qw(:DRIVE_);
-
-Win32API::File::GetLogicalDriveStrings(4*26+1, my $LogicalDriveStrings);
-for my $driveroot (split /\0/, $LogicalDriveStrings) {
-    my $type = Win32API::File::GetDriveType($driveroot);
-    # 0 DRIVE_UNKNOWN
-    # 1 DRIVE_NO_ROOT_DIR
-    # 2 DRIVE_REMOVABLE
-    # 3 DRIVE_FIXED
-    # 4 DRIVE_REMOTE
-    # 5 DRIVE_CDROM
-    # 6 DRIVE_RAMDISK
-    if (($type == DRIVE_FIXED)  or
-        ($type == DRIVE_REMOTE) or
-        ($type == DRIVE_RAMDISK)
-    ) {
-        if (-e "${driveroot}perl58\\bin\\perl.exe") {
-            push @perlbin, "${driveroot}perl58\\bin\\perl.exe";
-        }
-    }
-}
-END
-
-# get drive list by 'net share' command
-# Windows NT, Windows 2000, Windows XP, Windows Server 2003, Windows Vista
-# maybe also Windows Server 2008
-if ($@) {
-    while (`net share 2>NUL` =~ /\b([A-Z])\$ +\1:\\ +Default share\b/ig) {
-        if (-e "$1:\\perl58\\bin\\perl.exe") {
-            push @perlbin, "$1:\\perl58\\bin\\perl.exe";
-        }
-    }
-}
-
-# perl5.8 not found
-if (@perlbin == 0) {
-    die "$0: nothing \\Perl58\\bin\\perl.exe nowhere.\n";
-}
-
-# only one perl5.8 found
-elsif (@perlbin == 1) {
-
-    # execute perlscript on the its perl.exe.
-    if (open(CONF,">$0.conf")) {
-        print CONF $perlbin[0];
-        close CONF;
-    }
-    exit system($perlbin[0], @ARGV);
-}
-
-# if many perl5.8 found
-elsif (@perlbin > 1) {
-
-    # select one perl.exe
-    print STDERR "This computer has many perl.exe.\n";
-    print STDERR map {"$_\n"} @perlbin;
-    print STDERR "Which perl.exe do you use? (exit by [Ctrl]+[C])";
-    while (1) {
-        print STDERR "drive = ";
-        my $drive = <STDIN>;
-        $drive = substr($drive,0,1);
-        if (my($perlbin) = grep /^$drive/i, @perlbin) {
-
-            # execute perlscript on the its perl.exe.
-            if (open(CONF,">$0.conf")) {
-                print CONF $perlbin;
-                close CONF;
-            }
-            exit system($perlbin, @ARGV);
-        }
-    }
-}
-
-__END__
+The world wants practical solutions anytime.
 
 =pod
 
@@ -152,21 +203,28 @@ B<perl58> [perlscript.pl]
 
 =head1 DESCRIPTION
 
-This program is useful when perl5.5 and perl5.8 are on the one computer.
-Set perl5.5's bin directory to environment variable %PATH%, do not set perl5.8's
-bin directory to %PATH%.
+This software is useful when perl5.8 and other version of perl are on the one
+computer. Do not set perl5.8's bin directory to %PATH%.
 
 It is necessary to install perl5.8 in "\Perl58\bin" directory of the drive of
-either. This program is executed by perl5.5, and find the perl5.8 and execute it.
+either. This software is executed by perl5.8, and find the perl5.8 and execute it.
 
  Find perl5.8 order by,
-   1st, C:\Perl58\bin\perl.exe
-   2nd, D:\Perl58\bin\perl.exe
-   3rd, E:\Perl58\bin\perl.exe
+     Z:\Perl58\bin\perl.exe
+     Y:\Perl58\bin\perl.exe
+     X:\Perl58\bin\perl.exe
                  :
                  :
+     C:\Perl58\bin\perl.exe
 
-When found it, then execute perlscript on the its perl.exe.
+     Z:\strawberry\Perl58\bin\perl.exe
+     Y:\strawberry\Perl58\bin\perl.exe
+     X:\strawberry\Perl58\bin\perl.exe
+                 :
+                 :
+     C:\strawberry\Perl58\bin\perl.exe
+
+When found it at last, set its path to environment variable PERL58BIN.
 
 =head1 EXAMPLES
 
@@ -200,4 +258,4 @@ perl
 
 =cut
 
-:endofperl
+:END

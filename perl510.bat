@@ -1,144 +1,195 @@
-@rem = '--*-Perl-*--
 @echo off
+rem version 1.0.5
+rem ======================================================================
+rem 
+rem  perl510 -  execute perlscript on the perl5.10 without %PATH% settings
+rem 
+rem  Copyright (c) 2008, 2009 INABA Hitoshi (ina@cpan.org)
+rem 
+rem ======================================================================
+
 if "%OS%" == "Windows_NT" goto WinNT
-perl -x -S "%0" %1 %2 %3 %4 %5 %6 %7 %8 %9
-goto endofperl
+
+:Win95
+  if "%PERL510BIN%" == "" goto SetWin95
+  %PERL510BIN% %1 %2 %3 %4 %5 %6 %7 %8 %9
+goto END
+
+:SetWin95
+  if not exist C:\AUTOEXEC.BAT goto L1
+  type C:\AUTOEXEC.BAT | find "SET PERL510BIN=" > nul
+  if not %ERRORLEVEL% == 0 goto L1
+  echo -----------------------------------------------------------
+  echo Description "SET PERL510BIN=" already exists in C:\AUTOEXEC.BAT.
+  echo Reboot computer to enable PERL510BIN, and try again.
+  echo -----------------------------------------------------------
+goto END
+
+:L1
+  if exist Z:\Perl510\bin\perl.exe echo SET PERL510BIN=Z:\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist Y:\Perl510\bin\perl.exe echo SET PERL510BIN=Y:\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist X:\Perl510\bin\perl.exe echo SET PERL510BIN=X:\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist W:\Perl510\bin\perl.exe echo SET PERL510BIN=W:\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist V:\Perl510\bin\perl.exe echo SET PERL510BIN=V:\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist U:\Perl510\bin\perl.exe echo SET PERL510BIN=U:\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist T:\Perl510\bin\perl.exe echo SET PERL510BIN=T:\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist S:\Perl510\bin\perl.exe echo SET PERL510BIN=S:\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist R:\Perl510\bin\perl.exe echo SET PERL510BIN=R:\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist Q:\Perl510\bin\perl.exe echo SET PERL510BIN=Q:\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist P:\Perl510\bin\perl.exe echo SET PERL510BIN=P:\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist O:\Perl510\bin\perl.exe echo SET PERL510BIN=O:\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist N:\Perl510\bin\perl.exe echo SET PERL510BIN=N:\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist M:\Perl510\bin\perl.exe echo SET PERL510BIN=M:\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist L:\Perl510\bin\perl.exe echo SET PERL510BIN=L:\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist K:\Perl510\bin\perl.exe echo SET PERL510BIN=K:\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist J:\Perl510\bin\perl.exe echo SET PERL510BIN=J:\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist I:\Perl510\bin\perl.exe echo SET PERL510BIN=I:\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist H:\Perl510\bin\perl.exe echo SET PERL510BIN=H:\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist G:\Perl510\bin\perl.exe echo SET PERL510BIN=G:\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist F:\Perl510\bin\perl.exe echo SET PERL510BIN=F:\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist E:\Perl510\bin\perl.exe echo SET PERL510BIN=E:\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist D:\Perl510\bin\perl.exe echo SET PERL510BIN=D:\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist C:\Perl510\bin\perl.exe echo SET PERL510BIN=C:\Perl510\bin\perl.exe>PERL510BIN.$$$
+
+  if exist Z:\strawberry\Perl510\bin\perl.exe echo SET PERL510BIN=Z:\strawberry\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist Y:\strawberry\Perl510\bin\perl.exe echo SET PERL510BIN=Y:\strawberry\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist X:\strawberry\Perl510\bin\perl.exe echo SET PERL510BIN=X:\strawberry\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist W:\strawberry\Perl510\bin\perl.exe echo SET PERL510BIN=W:\strawberry\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist V:\strawberry\Perl510\bin\perl.exe echo SET PERL510BIN=V:\strawberry\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist U:\strawberry\Perl510\bin\perl.exe echo SET PERL510BIN=U:\strawberry\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist T:\strawberry\Perl510\bin\perl.exe echo SET PERL510BIN=T:\strawberry\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist S:\strawberry\Perl510\bin\perl.exe echo SET PERL510BIN=S:\strawberry\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist R:\strawberry\Perl510\bin\perl.exe echo SET PERL510BIN=R:\strawberry\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist Q:\strawberry\Perl510\bin\perl.exe echo SET PERL510BIN=Q:\strawberry\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist P:\strawberry\Perl510\bin\perl.exe echo SET PERL510BIN=P:\strawberry\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist O:\strawberry\Perl510\bin\perl.exe echo SET PERL510BIN=O:\strawberry\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist N:\strawberry\Perl510\bin\perl.exe echo SET PERL510BIN=N:\strawberry\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist M:\strawberry\Perl510\bin\perl.exe echo SET PERL510BIN=M:\strawberry\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist L:\strawberry\Perl510\bin\perl.exe echo SET PERL510BIN=L:\strawberry\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist K:\strawberry\Perl510\bin\perl.exe echo SET PERL510BIN=K:\strawberry\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist J:\strawberry\Perl510\bin\perl.exe echo SET PERL510BIN=J:\strawberry\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist I:\strawberry\Perl510\bin\perl.exe echo SET PERL510BIN=I:\strawberry\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist H:\strawberry\Perl510\bin\perl.exe echo SET PERL510BIN=H:\strawberry\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist G:\strawberry\Perl510\bin\perl.exe echo SET PERL510BIN=G:\strawberry\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist F:\strawberry\Perl510\bin\perl.exe echo SET PERL510BIN=F:\strawberry\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist E:\strawberry\Perl510\bin\perl.exe echo SET PERL510BIN=E:\strawberry\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist D:\strawberry\Perl510\bin\perl.exe echo SET PERL510BIN=D:\strawberry\Perl510\bin\perl.exe>PERL510BIN.$$$
+  if exist C:\strawberry\Perl510\bin\perl.exe echo SET PERL510BIN=C:\strawberry\Perl510\bin\perl.exe>PERL510BIN.$$$
+
+  if exist PERL510BIN.$$$ goto L2
+
+  echo ***********************************************************
+  echo "\Perl510\bin\perl.exe" not found in C: to Z: drives.
+  echo ***********************************************************
+goto END
+
+:L2
+  echo ***********************************************************
+  echo Environment variable PERL510BIN not set.
+  echo Do you add following description to C:\AUTOEXEC.BAT?
+  echo 
+  type PERL510BIN.$$$
+  echo 
+  echo Press [Enter] to Yes continue, or [Ctrl]+[C] to No, quit.
+  echo ***********************************************************
+  pause
+  type PERL510BIN.$$$ >> C:\AUTOEXEC.BAT
+  del PERL510BIN.$$$
+  echo -----------------------------------------------------------
+  echo Reboot computer to enable PERL510BIN, and try again.
+  echo -----------------------------------------------------------
+goto END
+
 :WinNT
-perl -x -S "%0" %*
-if NOT "%COMSPEC%" == "%SystemRoot%\system32\cmd.exe" goto endofperl
-if %errorlevel% == 9009 echo You do not have Perl in your PATH.
-exit /b %errorlevel%
-goto endofperl
-@rem ';
-#!perl
-#line 15
-my $VERSION = "1.0.1"; undef @rem;
-######################################################################
-#
-# perl510 -  execute perlscript on the perl5.10 without %PATH% settings
-#
-# Copyright (c) 2008, 2009 INABA Hitoshi <ina@cpan.org>
-#
-######################################################################
+  if "%PERL510BIN%" == "" goto SetWinNT
+  %PERL510BIN% %*
+  exit /b %ERRORLEVEL%
+goto END
 
-use strict;
+:SetWinNT
+  if exist Z:\Perl510\bin\perl.exe echo "PERL510BIN"="Z:\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist Y:\Perl510\bin\perl.exe echo "PERL510BIN"="Y:\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist X:\Perl510\bin\perl.exe echo "PERL510BIN"="X:\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist W:\Perl510\bin\perl.exe echo "PERL510BIN"="W:\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist V:\Perl510\bin\perl.exe echo "PERL510BIN"="V:\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist U:\Perl510\bin\perl.exe echo "PERL510BIN"="U:\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist T:\Perl510\bin\perl.exe echo "PERL510BIN"="T:\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist S:\Perl510\bin\perl.exe echo "PERL510BIN"="S:\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist R:\Perl510\bin\perl.exe echo "PERL510BIN"="R:\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist Q:\Perl510\bin\perl.exe echo "PERL510BIN"="Q:\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist P:\Perl510\bin\perl.exe echo "PERL510BIN"="P:\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist O:\Perl510\bin\perl.exe echo "PERL510BIN"="O:\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist N:\Perl510\bin\perl.exe echo "PERL510BIN"="N:\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist M:\Perl510\bin\perl.exe echo "PERL510BIN"="M:\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist L:\Perl510\bin\perl.exe echo "PERL510BIN"="L:\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist K:\Perl510\bin\perl.exe echo "PERL510BIN"="K:\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist J:\Perl510\bin\perl.exe echo "PERL510BIN"="J:\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist I:\Perl510\bin\perl.exe echo "PERL510BIN"="I:\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist H:\Perl510\bin\perl.exe echo "PERL510BIN"="H:\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist G:\Perl510\bin\perl.exe echo "PERL510BIN"="G:\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist F:\Perl510\bin\perl.exe echo "PERL510BIN"="F:\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist E:\Perl510\bin\perl.exe echo "PERL510BIN"="E:\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist D:\Perl510\bin\perl.exe echo "PERL510BIN"="D:\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist C:\Perl510\bin\perl.exe echo "PERL510BIN"="C:\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
 
-# print usage
-unless (@ARGV) {
-    die <<END;
+  if exist Z:\strawberry\Perl510\bin\perl.exe echo "PERL510BIN"="Z:\\strawberry\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist Y:\strawberry\Perl510\bin\perl.exe echo "PERL510BIN"="Y:\\strawberry\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist X:\strawberry\Perl510\bin\perl.exe echo "PERL510BIN"="X:\\strawberry\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist W:\strawberry\Perl510\bin\perl.exe echo "PERL510BIN"="W:\\strawberry\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist V:\strawberry\Perl510\bin\perl.exe echo "PERL510BIN"="V:\\strawberry\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist U:\strawberry\Perl510\bin\perl.exe echo "PERL510BIN"="U:\\strawberry\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist T:\strawberry\Perl510\bin\perl.exe echo "PERL510BIN"="T:\\strawberry\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist S:\strawberry\Perl510\bin\perl.exe echo "PERL510BIN"="S:\\strawberry\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist R:\strawberry\Perl510\bin\perl.exe echo "PERL510BIN"="R:\\strawberry\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist Q:\strawberry\Perl510\bin\perl.exe echo "PERL510BIN"="Q:\\strawberry\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist P:\strawberry\Perl510\bin\perl.exe echo "PERL510BIN"="P:\\strawberry\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist O:\strawberry\Perl510\bin\perl.exe echo "PERL510BIN"="O:\\strawberry\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist N:\strawberry\Perl510\bin\perl.exe echo "PERL510BIN"="N:\\strawberry\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist M:\strawberry\Perl510\bin\perl.exe echo "PERL510BIN"="M:\\strawberry\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist L:\strawberry\Perl510\bin\perl.exe echo "PERL510BIN"="L:\\strawberry\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist K:\strawberry\Perl510\bin\perl.exe echo "PERL510BIN"="K:\\strawberry\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist J:\strawberry\Perl510\bin\perl.exe echo "PERL510BIN"="J:\\strawberry\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist I:\strawberry\Perl510\bin\perl.exe echo "PERL510BIN"="I:\\strawberry\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist H:\strawberry\Perl510\bin\perl.exe echo "PERL510BIN"="H:\\strawberry\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist G:\strawberry\Perl510\bin\perl.exe echo "PERL510BIN"="G:\\strawberry\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist F:\strawberry\Perl510\bin\perl.exe echo "PERL510BIN"="F:\\strawberry\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist E:\strawberry\Perl510\bin\perl.exe echo "PERL510BIN"="E:\\strawberry\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist D:\strawberry\Perl510\bin\perl.exe echo "PERL510BIN"="D:\\strawberry\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
+  if exist C:\strawberry\Perl510\bin\perl.exe echo "PERL510BIN"="C:\\strawberry\\Perl510\\bin\\perl.exe">PERL510BIN.$$$
 
-$0 ver.$VERSION
+  if exist PERL510BIN.$$$ goto L3
 
-usage:
+  echo ***********************************************************
+  echo "\Perl510\bin\perl.exe" not found in C: to Z: drives.
+  echo ***********************************************************
+goto END
 
-C:\\>$0 perlscript.pl ...
+:L3
+  echo ***********************************************************
+  echo Environment variable PERL510BIN not set.
+  echo Do you set following registry?
+  echo.
+  echo [HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager\Environment]
+  type PERL510BIN.$$$
+  echo.
+  echo Press [Enter] to Yes continue, or [Ctrl]+[C] to No, quit.
+  echo ***********************************************************
+  pause
+  ver | find "Windows NT" > nul
+  if     %ERRORLEVEL% == 0 echo REGEDIT4>PERL510BIN.REG
+  if not %ERRORLEVEL% == 0 echo Windows Registry Editor Version 5.00>PERL510BIN.REG
+  echo.>>PERL510BIN.REG
+  echo [HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager\Environment]>>PERL510BIN.REG
+  type PERL510BIN.$$$ >> PERL510BIN.REG
+  PERL510BIN.REG
+  del PERL510BIN.REG
+  del PERL510BIN.$$$
+  echo -----------------------------------------------------------
+  echo Reboot computer to enable PERL510BIN, and try again.
+  echo -----------------------------------------------------------
+goto END
 
-Find perl5.10 order by,
-  1st, C:\\Perl510\\bin\\perl.exe
-  2nd, D:\\Perl510\\bin\\perl.exe
-  3rd, E:\\Perl510\\bin\\perl.exe
-                :
-                :
-
-When found it, then execute perlscript on the its perl.exe.
-
-END
-}
-
-# quote by "" if include space
-@ARGV = map { / / ? qq{"$_"} : $_ } @ARGV;
-
-# if this script running under perl5.10
-if ($] =~ /^5\.010/) {
-    exit system($^X, @ARGV);
-}
-
-# if .conf file exists
-if (open(CONF,"$0.conf")) {
-    my $perlbin = <CONF>;
-    close CONF;
-    if (-e $perlbin) {
-        exit system($perlbin, @ARGV);
-    }
-}
-
-# find perl5.10 in the computer
-my @perlbin = ();
-eval <<'END';
-use Win32API::File qw(:DRIVE_);
-
-Win32API::File::GetLogicalDriveStrings(4*26+1, my $LogicalDriveStrings);
-for my $driveroot (split /\0/, $LogicalDriveStrings) {
-    my $type = Win32API::File::GetDriveType($driveroot);
-    # 0 DRIVE_UNKNOWN
-    # 1 DRIVE_NO_ROOT_DIR
-    # 2 DRIVE_REMOVABLE
-    # 3 DRIVE_FIXED
-    # 4 DRIVE_REMOTE
-    # 5 DRIVE_CDROM
-    # 6 DRIVE_RAMDISK
-    if (($type == DRIVE_FIXED)  or
-        ($type == DRIVE_REMOTE) or
-        ($type == DRIVE_RAMDISK)
-    ) {
-        if (-e "${driveroot}perl510\\bin\\perl.exe") {
-            push @perlbin, "${driveroot}perl510\\bin\\perl.exe";
-        }
-    }
-}
-END
-
-# get drive list by 'net share' command
-# Windows NT, Windows 2000, Windows XP, Windows Server 2003, Windows Vista
-# maybe also Windows Server 2008
-if ($@) {
-    while (`net share 2>NUL` =~ /\b([A-Z])\$ +\1:\\ +Default share\b/ig) {
-        if (-e "$1:\\perl510\\bin\\perl.exe") {
-            push @perlbin, "$1:\\perl510\\bin\\perl.exe";
-        }
-    }
-}
-
-# perl5.10 not found
-if (@perlbin == 0) {
-    die "$0: nothing \\Perl510\\bin\\perl.exe nowhere.\n";
-}
-
-# only one perl5.10 found
-elsif (@perlbin == 1) {
-
-    # execute perlscript on the its perl.exe.
-    if (open(CONF,">$0.conf")) {
-        print CONF $perlbin[0];
-        close CONF;
-    }
-    exit system($perlbin[0], @ARGV);
-}
-
-# if many perl5.10 found
-elsif (@perlbin > 1) {
-
-    # select one perl.exe
-    print STDERR "This computer has many perl.exe.\n";
-    print STDERR map {"$_\n"} @perlbin;
-    print STDERR "Which perl.exe do you use? (exit by [Ctrl]+[C])";
-    while (1) {
-        print STDERR "drive = ";
-        my $drive = <STDIN>;
-        $drive = substr($drive,0,1);
-        if (my($perlbin) = grep /^$drive/i, @perlbin) {
-
-            # execute perlscript on the its perl.exe.
-            if (open(CONF,">$0.conf")) {
-                print CONF $perlbin;
-                close CONF;
-            }
-            exit system($perlbin, @ARGV);
-        }
-    }
-}
-
-__END__
+The world wants practical solutions anytime.
 
 =pod
 
@@ -152,21 +203,28 @@ B<perl510> [perlscript.pl]
 
 =head1 DESCRIPTION
 
-This program is useful when perl5.5 and perl5.10 are on the one computer.
-Set perl5.5's bin directory to environment variable %PATH%, do not set perl5.10's
-bin directory to %PATH%.
+This software is useful when perl5.10 and other version of perl are on the one
+computer. Do not set perl5.10's bin directory to %PATH%.
 
 It is necessary to install perl5.10 in "\Perl510\bin" directory of the drive of
-either. This program is executed by perl5.5, and find the perl5.10 and execute it.
+either. This software is executed by perl5.10, and find the perl5.10 and execute it.
 
  Find perl5.10 order by,
-   1st, C:\Perl510\bin\perl.exe
-   2nd, D:\Perl510\bin\perl.exe
-   3rd, E:\Perl510\bin\perl.exe
+     Z:\Perl510\bin\perl.exe
+     Y:\Perl510\bin\perl.exe
+     X:\Perl510\bin\perl.exe
                  :
                  :
+     C:\Perl510\bin\perl.exe
 
-When found it, then execute perlscript on the its perl.exe.
+     Z:\strawberry\Perl510\bin\perl.exe
+     Y:\strawberry\Perl510\bin\perl.exe
+     X:\strawberry\Perl510\bin\perl.exe
+                 :
+                 :
+     C:\strawberry\Perl510\bin\perl.exe
+
+When found it at last, set its path to environment variable PERL510BIN.
 
 =head1 EXAMPLES
 
@@ -200,4 +258,4 @@ perl
 
 =cut
 
-:endofperl
+:END
