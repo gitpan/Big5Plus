@@ -1,5 +1,9 @@
 Revision history for Perl extension Sjis.
 
+0.40  2009/08/27 00:00:00
+	- support INFOMIX V6 ALS, GB18030, EUC-JP.
+	; created by INABA Hitoshi
+
 0.39  2009/08/06 00:00:00
 	- support Sjis::length, Sjis::substr, Sjis::index and Sjis::rindex.
 	; created by INABA Hitoshi

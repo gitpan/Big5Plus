@@ -11,7 +11,7 @@ use strict;
 use 5.00503;
 use vars qw($VERSION $_warning);
 
-$VERSION = sprintf '%d.%02d', q$Revision: 0.39 $ =~ m/(\d+)/xmsg;
+$VERSION = sprintf '%d.%02d', q$Revision: 0.40 $ =~ m/(\d+)/xmsg;
 
 use Fcntl;
 use Symbol;
@@ -29,12 +29,118 @@ BEGIN {
     }
 }
 
-sub import() {}
-sub unimport() {}
+my $your_char = q{[\x81-\xFE][\x00-\xFF]|[\x00-\xFF]};
+
+# regexp of character
+my  $q_char   = qr/$your_char/oxms;
+
+#
+# Big5Plus character range per length
+#
+my %range_tr = ();
+my $is_shiftjis_family = 0;
+my $is_eucjp_family    = 0;
+
+# Big5Plus
+if (__PACKAGE__ eq 'Ebig5plus') {
+    %range_tr = (
+        1 => [ [0x00..0x80,0xFF],
+             ],
+        2 => [ [0x81..0xFE],[0x40..0x7E,0x80..0xFE],
+             ],
+    );
+}
+
+# EUC-JP
+elsif (__PACKAGE__ eq 'Eeucjp') {
+    %range_tr = (
+        1 => [ [0x00..0x8D,0x90..0xA0,0xFF],
+             ],
+        2 => [ [0x8E..0x8E],[0xA1..0xDF],
+               [0xA1..0xFE],[0xA1..0xFE],
+             ],
+        3 => [ [0x8F..0x8F],[0xA1..0xFE],[0xA1..0xFE],
+             ],
+    );
+    $is_eucjp_family = 1;
+}
+
+# GB18030
+elsif (__PACKAGE__ eq 'Egb18030') {
+    %range_tr = (
+        1 => [ [0x00..0x80,0xFF],
+             ],
+        2 => [ [0x81..0xFE],[0x40..0x7E,0x80..0xFE],
+             ],
+        4 => [ [0x81..0xFE],[0x30..0x39],[0x81..0xFE],[0x30..0x39],
+             ],
+    );
+}
+
+# GBK
+elsif (__PACKAGE__ eq 'Egbk') {
+    %range_tr = (
+        1 => [ [0x00..0x80,0xFF],
+             ],
+        2 => [ [0x81..0xFE],[0x40..0x7E,0x80..0xFE],
+             ],
+    );
+}
+
+# HP-15
+elsif (__PACKAGE__ eq 'Ehp15') {
+    %range_tr = (
+        1 => [ [0x00..0x7F,0xA1..0xDF,0xFF],
+             ],
+        2 => [ [0x80..0xA0,0xE0..0xFE],[0x21..0x7E,0x80..0xFF],
+             ],
+    );
+    $is_shiftjis_family = 1;
+}
+
+# INFOMIX V6 ALS
+elsif (__PACKAGE__ eq 'Einfomixv6als') {
+    %range_tr = (
+        1 => [ [0x00..0x80,0xA0..0xDF,0xFE..0xFF],
+             ],
+        2 => [ [0x81..0x9F,0xE0..0xFC],[0x40..0x7E,0x80..0xFC],
+             ],
+        3 => [ [0xFD..0xFD],[0xA1..0xFE],[0xA1..0xFE],
+             ],
+    );
+    $is_shiftjis_family = 1;
+}
+
+# Big5Plus
+elsif (__PACKAGE__ eq 'E'.'sjis') {
+    %range_tr = (
+        1 => [ [0x00..0x80,0xA0..0xDF,0xFD..0xFF],
+             ],
+        2 => [ [0x81..0x9F,0xE0..0xFC],[0x40..0x7E,0x80..0xFC],
+             ],
+    );
+    $is_shiftjis_family = 1;
+}
+
+# UHC
+elsif (__PACKAGE__ eq 'Euhc') {
+    %range_tr = (
+        1 => [ [0x00..0x80,0xFF],
+             ],
+        2 => [ [0x81..0xFE],[0x41..0x5A,0x61..0x7A,0x81..0xFE],
+             ],
+    );
+}
+
+else {
+    croak "$0 don't know my package name '" . __PACKAGE__ . "'";
+}
 
 #
 # Prototypes of subroutines
 #
+sub import() {}
+sub unimport() {}
 sub Ebig5plus::split(;$$$);
 sub Ebig5plus::tr($$$;$);
 sub Ebig5plus::chop(@);
@@ -122,12 +228,14 @@ sub Big5Plus::substr($$;$$);
 sub Big5Plus::index($$;$);
 sub Big5Plus::rindex($$;$);
 
+#
 # @ARGV wildcard globbing
+#
 if ($^O =~ /\A (?: MSWin32 | NetWare | symbian | dos ) \z/oxms) {
     if ($ENV{'ComSpec'} =~ / (?: COMMAND\.COM | CMD\.EXE ) \z /oxmsi) {
         my @argv = ();
         for (@ARGV) {
-            if (m/\A ' ((?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])*) ' \z/oxms) {
+            if (m/\A ' ((?:$q_char)*) ' \z/oxms) {
                 push @argv, $1;
             }
             elsif (my @glob = Ebig5plus::glob($_)) {
@@ -140,6 +248,60 @@ if ($^O =~ /\A (?: MSWin32 | NetWare | symbian | dos ) \z/oxms) {
         @ARGV = @argv;
     }
 }
+
+#
+# prepare Big5Plus characters per length
+#
+my @chars1 = ();
+my @chars2 = ();
+my @chars3 = ();
+my @chars4 = ();
+if (exists $range_tr{1}) {
+    my @ranges = @{ $range_tr{1} };
+    while (my @range = splice(@ranges,0,1)) {
+        for my $oct0 (@{$range[0]}) {
+            push @chars1, pack 'C', $oct0;
+        }
+    }
+}
+if (exists $range_tr{2}) {
+    my @ranges = @{ $range_tr{2} };
+    while (my @range = splice(@ranges,0,2)) {
+        for my $oct0 (@{$range[0]}) {
+            for my $oct1 (@{$range[1]}) {
+                push @chars2, pack 'CC', $oct0,$oct1;
+            }
+        }
+    }
+}
+if (exists $range_tr{3}) {
+    my @ranges = @{ $range_tr{3} };
+    while (my @range = splice(@ranges,0,3)) {
+        for my $oct0 (@{$range[0]}) {
+            for my $oct1 (@{$range[1]}) {
+                for my $oct2 (@{$range[2]}) {
+                    push @chars3, pack 'CCC', $oct0,$oct1,$oct2;
+                }
+            }
+        }
+    }
+}
+if (exists $range_tr{4}) {
+    my @ranges = @{ $range_tr{4} };
+    while (my @range = splice(@ranges,0,4)) {
+        for my $oct0 (@{$range[0]}) {
+            for my $oct1 (@{$range[1]}) {
+                for my $oct2 (@{$range[2]}) {
+                    for my $oct3 (@{$range[3]}) {
+                        push @chars4, pack 'CCCC', $oct0,$oct1,$oct2,$oct3;
+                    }
+                }
+            }
+        }
+    }
+}
+my @minchar = (undef, $chars1[ 0], $chars2[ 0], $chars3[ 0], $chars4[ 0]);
+my @maxchar = (undef, $chars1[-1], $chars2[-1], $chars3[-1], $chars4[-1]);
 
 #
 # Big5Plus split
@@ -172,7 +334,7 @@ sub Ebig5plus::split(;$$$) {
             # the //m modifier is assumed when you split on the pattern /^/
             # (and so on)
 
-            while ($string =~ s/\A((?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])*?)\s+//m) {
+            while ($string =~ s/\A((?:$q_char)*?)\s+//m) {
 
                 # if the $pattern contains parentheses, then the substring matched by each pair of parentheses
                 # is included in the resulting list, interspersed with the fields that are ordinarily returned
@@ -191,8 +353,7 @@ sub Ebig5plus::split(;$$$) {
         # (and so on)
 
         elsif ('' =~ m/ \A $pattern \z /xms) {
-            #                                                                     v--- Look
-            while ($string =~ s/\A((?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])+?)$pattern//m) {
+            while ($string =~ s/\A((?:$q_char)+?)$pattern//m) {
                 local $@;
                 for (my $digit=1; eval "defined(\$$digit)"; $digit++) {
                     push @split, eval '$' . $digit;
@@ -201,8 +362,7 @@ sub Ebig5plus::split(;$$$) {
         }
 
         else {
-            #                                                                     v--- Look
-            while ($string =~ s/\A((?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])*?)$pattern//m) {
+            while ($string =~ s/\A((?:$q_char)*?)$pattern//m) {
                 local $@;
                 for (my $digit=1; eval "defined(\$$digit)"; $digit++) {
                     push @split, eval '$' . $digit;
@@ -215,7 +375,7 @@ sub Ebig5plus::split(;$$$) {
         if ((not defined $pattern) or ($pattern eq ' ')) {
             $string =~ s/ \A \s+ //oxms;
             while ((--$limit > 0) and (CORE::length($string) > 0)) {
-                if ($string =~ s/\A((?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])*?)\s+//m) {
+                if ($string =~ s/\A((?:$q_char)*?)\s+//m) {
                     local $@;
                     for (my $digit=1; eval "defined(\$$digit)"; $digit++) {
                         push @split, eval '$' . $digit;
@@ -225,8 +385,7 @@ sub Ebig5plus::split(;$$$) {
         }
         elsif ('' =~ m/ \A $pattern \z /xms) {
             while ((--$limit > 0) and (CORE::length($string) > 0)) {
-                #                                                                  v--- Look
-                if ($string =~ s/\A((?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])+?)$pattern//m) {
+                if ($string =~ s/\A((?:$q_char)+?)$pattern//m) {
                     local $@;
                     for (my $digit=1; eval "defined(\$$digit)"; $digit++) {
                         push @split, eval '$' . $digit;
@@ -236,8 +395,7 @@ sub Ebig5plus::split(;$$$) {
         }
         else {
             while ((--$limit > 0) and (CORE::length($string) > 0)) {
-                #                                                                  v--- Look
-                if ($string =~ s/\A((?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])*?)$pattern//m) {
+                if ($string =~ s/\A((?:$q_char)*?)$pattern//m) {
                     local $@;
                     for (my $digit=1; eval "defined(\$$digit)"; $digit++) {
                         push @split, eval '$' . $digit;
@@ -278,7 +436,7 @@ sub Ebig5plus::tr($$$;$) {
     my $replacementlist = $_[2];
     my $modifier        = $_[3] || '';
 
-    my @char            = $_[0] =~ m/\G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxmsg;
+    my @char            = $_[0] =~ m/\G ($q_char) /oxmsg;
     my @searchlist      = _charlist_tr($searchlist);
     my @replacementlist = _charlist_tr($replacementlist);
 
@@ -348,13 +506,13 @@ sub Ebig5plus::chop(@) {
 
     my $chop;
     if (@_ == 0) {
-        my @char = m/\G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF])/oxmsg;
+        my @char = m/\G ($q_char)/oxmsg;
         $chop = pop @char;
         $_ = join '', @char;
     }
     else {
         for (@_) {
-            my @char = m/\G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxmsg;
+            my @char = m/\G ($q_char) /oxmsg;
             $chop = pop @char;
             $_ = join '', @char;
         }
@@ -377,8 +535,8 @@ sub Ebig5plus::index($$;$) {
                 return $pos;
             }
         }
-        if (CORE::substr($str,$pos,1) =~ m/\A [\x81-\xFE] \z/oxms) {
-            $pos += 2;
+        if (CORE::substr($str,$pos) =~ m/\A ($q_char) /oxms) {
+            $pos += CORE::length($1);
         }
         else {
             $pos += 1;
@@ -401,8 +559,8 @@ sub Ebig5plus::rindex($$;$) {
         if (CORE::substr($str,$pos,CORE::length($substr)) eq $substr) {
             $rindex = $pos;
         }
-        if (CORE::substr($str,$pos,1) =~ m/\A [\x81-\xFE] \z/oxms) {
-            $pos += 2;
+        if (CORE::substr($str,$pos) =~ m/\A ($q_char) /oxms) {
+            $pos += CORE::length($1);
         }
         else {
             $pos += 1;
@@ -424,7 +582,7 @@ sub Ebig5plus::lc($) {
 
     local $^W = 0;
 
-    return join('', map {$lc{$_}||$_} m/\G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF])/oxmsg);
+    return join('', map {$lc{$_}||$_} m/\G ($q_char)/oxmsg);
 }
 
 #
@@ -438,7 +596,7 @@ sub Ebig5plus::lc_() {
 
     local $^W = 0;
 
-    return join('', map {$lc{$_}||$_} m/\G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF])/oxmsg);
+    return join('', map {$lc{$_}||$_} m/\G ($q_char)/oxmsg);
 }
 
 #
@@ -454,7 +612,7 @@ sub Ebig5plus::uc($) {
 
     local $^W = 0;
 
-    return join('', map {$uc{$_}||$_} m/\G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxmsg);
+    return join('', map {$uc{$_}||$_} m/\G ($q_char) /oxmsg);
 }
 
 #
@@ -468,7 +626,7 @@ sub Ebig5plus::uc_() {
 
     local $^W = 0;
 
-    return join('', map {$uc{$_}||$_} m/\G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxmsg);
+    return join('', map {$uc{$_}||$_} m/\G ($q_char) /oxmsg);
 }
 
 #
@@ -504,7 +662,7 @@ sub Ebig5plus::ignorecase(@) {
         # split regexp
         my @char = $string =~ m{\G(
             \[\^ |
-                \\? (?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])
+                \\? (?:$q_char)
         )}oxmsg;
 
         # unescape character
@@ -516,21 +674,21 @@ sub Ebig5plus::ignorecase(@) {
                 my $left = $i;
                 while (1) {
                     if (++$i > $#char) {
-                        confess "$0: unmatched [] in regexp";
+                        croak "$0: unmatched [] in regexp";
                     }
                     if ($char[$i] eq ']') {
                         my $right = $i;
-                        my @charlist = _charlist_qr(@char[$left+1..$right-1], 'i');
+                        my @charlist = charlist_qr(@char[$left+1..$right-1], 'i');
 
                         # escape character
                         for my $char (@charlist) {
 
                             # do not use quotemeta here
-                            if ($char =~ m/\A ([\x81-\xFE]) ($metachar) \z/oxms) {
-                               $char = $1 . '\\' . $2;
+                            if ($char =~ m/\A ([\x80-\xFF].*) ($metachar) \z/oxms) {
+                                $char = $1 . '\\' . $2;
                             }
                             elsif ($char =~ m/\A [.|)] \z/oxms) {
-                                $char = '\\' . $char;
+                                $char = $1 . '\\' . $char;
                             }
                         }
 
@@ -548,17 +706,17 @@ sub Ebig5plus::ignorecase(@) {
                 my $left = $i;
                 while (1) {
                     if (++$i > $#char) {
-                        confess "$0: unmatched [] in regexp";
+                        croak "$0: unmatched [] in regexp";
                     }
                     if ($char[$i] eq ']') {
                         my $right = $i;
-                        my @charlist = _charlist_not_qr(@char[$left+1..$right-1], 'i');
+                        my @charlist = charlist_not_qr(@char[$left+1..$right-1], 'i');
 
                         # escape character
                         for my $char (@charlist) {
 
                             # do not use quotemeta here
-                            if ($char =~ m/\A ([\x81-\xFE]) ($metachar) \z/oxms) {
+                            if ($char =~ m/\A ([\x80-\xFF].*) ($metachar) \z/oxms) {
                                 $char = $1 . '\\' . $2;
                             }
                             elsif ($char =~ m/\A [.|)] \z/oxms) {
@@ -567,7 +725,7 @@ sub Ebig5plus::ignorecase(@) {
                         }
 
                         # [^...]
-                        splice @char, $left, $right-$left+1, '(?!' . join('|', @charlist) . ')(?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])';
+                        splice @char, $left, $right-$left+1, '(?!' . join('|', @charlist) . ")(?:$your_char)";
 
                         $i = $left;
                         last;
@@ -598,26 +756,16 @@ sub Ebig5plus::ignorecase(@) {
         for (my $i=0; $i <= $#char; $i++) {
             next if not defined $char[$i];
 
-            # join separated double octet
-            if ($char[$i] =~ m/\A [\x81-\xFE] \z/oxms) {
-                if ($i < $#char) {
-                    $char[$i] .= $char[$i+1];
-                    splice @char, $i+1, 1;
-                }
-            }
-
-            # escape second octet of double octet
-            if ($char[$i] =~ m/\A ([\x81-\xFE]) ($metachar) \z/oxms) {
+            # escape last octet of multiple octet
+            if ($char[$i] =~ m/\A ([\x80-\xFF].*) ($metachar) \z/oxms) {
                 $char[$i] = $1 . '\\' . $2;
             }
 
-            # quote double octet character before ? + * {
-            elsif (
-                ($i >= 1) and
-                ($char[$i] =~ m/\A [\?\+\*\{] \z/oxms) and
-                ($char[$i-1] =~ m/\A [\x81-\xFE] (?: \\?[\x00-\xFF] ) \z/oxms)
-            ) {
-                $char[$i-1] = '(?:' . $char[$i-1] . ')';
+            # quote character before ? + * {
+            elsif (($i >= 1) and ($char[$i] =~ m/\A [\?\+\*\{] \z/oxms)) {
+                if ($char[$i-1] !~ m/\A [\x00-\xFF] \z/oxms) {
+                    $char[$i-1] = '(?:' . $char[$i-1] . ')';
+                }
             }
         }
 
@@ -638,7 +786,10 @@ sub _charlist_tr {
     # unescape character
     my @char = ();
     while (not m/\G \z/oxmsgc) {
-        if (m/\G \\ ([0-7]{2,3}) /oxmsgc) {
+        if (m/\G (\\0?55|\\x2[Dd]|\\-) /oxmsgc) {
+            push @char, '\-';
+        }
+        elsif (m/\G \\ ([0-7]{2,3}) /oxmsgc) {
             push @char, CORE::chr(oct $1);
         }
         elsif (m/\G \\x ([0-9A-Fa-f]{1,2}) /oxmsgc) {
@@ -659,83 +810,241 @@ sub _charlist_tr {
                 '\e' => "\e",
             }->{$1};
         }
-        elsif (m/\G \\ ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxmsgc) {
+        elsif (m/\G \\ ($q_char) /oxmsgc) {
             push @char, $1;
         }
-        elsif (m/\G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxmsgc) {
+        elsif (m/\G ($q_char) /oxmsgc) {
             push @char, $1;
         }
     }
 
-    # join separated double octet
-    @char = join('',@char) =~ m/\G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxmsg;
+    # join separated multiple octet
+    @char = join('',@char) =~ m/\G (\\-|$q_char) /oxmsg;
 
-    # open character list
-    for (my $i=$#char-1; $i >= 1; ) {
-
-        # escaped -
-        if (($char[$i] eq '-') and (0 < $i) and ($i < $#char-1)) {
-            my @range = ();
-
-            # range of single octet code
-            if (
-                ($char[$i-1] =~ m/\A [\x00-\xFF] \z/oxms) and
-                ($char[$i+1] =~ m/\A [\x00-\xFF] \z/oxms)
-            ) {
-                my $begin = unpack 'C', $char[$i-1];
-                my $end   = unpack 'C', $char[$i+1];
-                if ($begin <= $end) {
-                    for my $c ($begin..$end) {
-                        push @range, pack 'C', $c;
-                    }
-                }
-                else {
-                    confess "$0: invalid [] range \"\\x" . unpack('H*',$char[$i-1]) . '-\\x' . unpack('H*',$char[$i+1]) . '" in regexp';
-                }
-            }
-
-            # range of double octet code
-            elsif (
-                ($char[$i-1] =~ m/\A [\x81-\xFE][\x00-\xFF] \z/oxms) and
-                ($char[$i+1] =~ m/\A [\x81-\xFE][\x00-\xFF] \z/oxms)
-            ) {
-                my($begin1,$begin2) = unpack 'CC', $char[$i-1];
-                my($end1,$end2)     = unpack 'CC', $char[$i+1];
-                my $begin = $begin1 * 0x100 + $begin2;
-                my $end   = $end1   * 0x100 + $end2;
-                if ($begin <= $end) {
-                    for my $cc ($begin..$end) {
-                        my $char = pack('CC', int($cc / 0x100), $cc % 0x100);
-                        if ($char =~ m/\A [\x81-\xFE] [\x40-\x7E\x80-\xFE] \z/oxms) {
-                            push @range, $char;
-                        }
-                    }
-                }
-                else {
-                    confess "$0: invalid [] range \"\\x" . unpack('H*',$char[$i-1]) . '-\\x' . unpack('H*',$char[$i+1]) . '" in regexp';
-                }
-            }
-
-            # range error
-            else {
-                confess "$0: invalid [] range \"\\x" . unpack('H*',$char[$i-1]) . '-\\x' . unpack('H*',$char[$i+1]) . '" in regexp';
-            }
-
-            splice @char, $i-1, 3, @range;
-            $i -= 2;
+    # unescape '-'
+    my @i = ();
+    for my $i (0 .. $#char) {
+        if ($char[$i] eq '\-') {
+            $char[$i] = '-';
         }
-        else {
-            $i -= 1;
+        elsif ($char[$i] eq '-') {
+            if ((0 < $i) and ($i < $#char)) {
+                push @i, $i;
+            }
         }
+    }
+
+    # open character list (reverse for splice)
+    for my $i (CORE::reverse @i) {
+        my @range = ();
+
+        # range error
+        if ((length($char[$i-1]) > length($char[$i+1])) or ($char[$i-1] gt $char[$i+1])) {
+            croak "$0: invalid [] range \"\\x" . unpack('H*',$char[$i-1]) . '-\\x' . unpack('H*',$char[$i+1]) . '" in regexp';
+        }
+
+        # range of multiple octet code
+        if (length($char[$i-1]) == 1) {
+            if (length($char[$i+1]) == 1) {
+                push @range, grep {($char[$i-1] le $_) and ($_ le $char[$i+1])} @chars1;
+            }
+            elsif (length($char[$i+1]) == 2) {
+                push @range, grep {$char[$i-1] le $_}                           @chars1;
+                push @range, grep {$_ le $char[$i+1]}                           @chars2;
+            }
+            elsif (length($char[$i+1]) == 3) {
+                push @range, grep {$char[$i-1] le $_}                           @chars1;
+                push @range,                                                    @chars2;
+                push @range, grep {$_ le $char[$i+1]}                           @chars3;
+            }
+            elsif (length($char[$i+1]) == 4) {
+                push @range, grep {$char[$i-1] le $_}                           @chars1;
+                push @range,                                                    @chars2;
+                push @range,                                                    @chars3;
+                push @range, grep {$_ le $char[$i+1]}                           @chars4;
+            }
+        }
+        elsif (length($char[$i-1]) == 2) {
+            if (length($char[$i+1]) == 2) {
+                push @range, grep {($char[$i-1] le $_) and ($_ le $char[$i+1])} @chars2;
+            }
+            elsif (length($char[$i+1]) == 3) {
+                push @range, grep {$char[$i-1] le $_}                           @chars2;
+                push @range, grep {$_ le $char[$i+1]}                           @chars3;
+            }
+            elsif (length($char[$i+1]) == 4) {
+                push @range, grep {$char[$i-1] le $_}                           @chars2;
+                push @range,                                                    @chars3;
+                push @range, grep {$_ le $char[$i+1]}                           @chars4;
+            }
+        }
+        elsif (length($char[$i-1]) == 3) {
+            if (length($char[$i+1]) == 3) {
+                push @range, grep {($char[$i-1] le $_) and ($_ le $char[$i+1])} @chars3;
+            }
+            elsif (length($char[$i+1]) == 4) {
+                push @range, grep {$char[$i-1] le $_}                           @chars3;
+                push @range, grep {$_ le $char[$i+1]}                           @chars4;
+            }
+        }
+        elsif (length($char[$i-1]) == 4) {
+            if (length($char[$i+1]) == 4) {
+                push @range, grep {($char[$i-1] le $_) and ($_ le $char[$i+1])} @chars4;
+            }
+        }
+
+        splice @char, $i-1, 3, @range;
     }
 
     return @char;
 }
 
 #
-# Big5Plus open character list for qr
+# Big5Plus octet range
 #
-sub _charlist_qr {
+sub _octets {
+
+    my $modifier = pop @_;
+    my $length = shift;
+
+    my($a) = unpack 'C', $_[0];
+    my($z) = unpack 'C', $_[1];
+
+    # single octet code
+    if ($length == 1) {
+
+        # single octet and ignore case
+        if (((caller(1))[3] ne 'Ebig5plus::_octets') and ($modifier =~ m/i/oxms)) {
+            if ($a == $z) {
+                return sprintf('(?i:\x%02X)',          $a);
+            }
+            elsif (($a+1) == $z) {
+                return sprintf('(?i:[\x%02X\x%02X])',  $a, $z);
+            }
+            else {
+                return sprintf('(?i:[\x%02X-\x%02X])', $a, $z);
+            }
+        }
+
+        # not ignore case or one of multiple octet
+        else {
+            if ($a == $z) {
+                return sprintf('\x%02X',          $a);
+            }
+            elsif (($a+1) == $z) {
+                return sprintf('[\x%02X\x%02X]',  $a, $z);
+            }
+            else {
+                return sprintf('[\x%02X-\x%02X]', $a, $z);
+            }
+        }
+    }
+
+    # double octet code of Shift_JIS family
+    elsif (($length == 2) and $is_shiftjis_family and ($a <= 0x9F) and (0xE0 <= $z)) {
+        my(undef,$a2) = unpack 'CC', $_[0];
+        my(undef,$z2) = unpack 'CC', $_[1];
+        my $octets1;
+        my $octets2;
+
+        if ($a == 0x9F) {
+            $octets1 = sprintf('\x%02X[\x%02X-\xFF]',                            0x9F,$a2);
+        }
+        elsif (($a+1) == 0x9F) {
+            $octets1 = sprintf('\x%02X[\x%02X-\xFF]|\x%02X[\x00-\xFF]',          $a,  $a2,$a+1),
+        }
+        elsif (($a+2) == 0x9F) {
+            $octets1 = sprintf('\x%02X[\x%02X-\xFF]|[\x%02X\x%02X][\x00-\xFF]',  $a,  $a2,$a+1,$a+2),
+        }
+        else {
+            $octets1 = sprintf('\x%02X[\x%02X-\xFF]|[\x%02X-\x%02X][\x00-\xFF]', $a,  $a2,$a+1,$a+2),
+        }
+
+        if ($z == 0xE0) {
+            $octets2 = sprintf('\x%02X[\x00-\x%02X]',                                      $z,$z2);
+        }
+        elsif (($z-1) == 0xE0) {
+            $octets2 = sprintf('\x%02X[\x00-\xFF]|\x%02X[\x00-\x%02X]',               $z-1,$z,$z2),
+        }
+        elsif (($z-2) == 0xE0) {
+            $octets2 = sprintf('[\x%02X\x%02X][\x00-\xFF]|\x%02X[\x00X-\x%02X]', $z-2,$z-1,$z,$z2),
+        }
+        else {
+            $octets2 = sprintf('[\x%02X-\x%02X][\x00-\xFF]|\x%02X[\x00-\x%02X]', 0xE0,$z-1,$z,$z2),
+        }
+
+        return "(?:$octets1|$octets2)";
+    }
+
+    # double octet code of EUC-JP family
+    elsif (($length == 2) and $is_eucjp_family and ($a == 0x8E) and (0xA1 <= $z)) {
+        my(undef,$a2) = unpack 'CC', $_[0];
+        my(undef,$z2) = unpack 'CC', $_[1];
+        my $octets1;
+        my $octets2;
+
+        $octets1 = sprintf('\x%02X[\x%02X-\xFF]',                                0x8E,$a2);
+
+        if ($z == 0xA1) {
+            $octets2 = sprintf('\x%02X[\x00-\x%02X]',                                      $z,$z2);
+        }
+        elsif (($z-1) == 0xA1) {
+            $octets2 = sprintf('\x%02X[\x00-\xFF]|\x%02X[\x00-\x%02X]',               $z-1,$z,$z2),
+        }
+        elsif (($z-2) == 0xA1) {
+            $octets2 = sprintf('[\x%02X\x%02X][\x00-\xFF]|\x%02X[\x00X-\x%02X]', $z-2,$z-1,$z,$z2),
+        }
+        else {
+            $octets2 = sprintf('[\x%02X-\x%02X][\x00-\xFF]|\x%02X[\x00-\x%02X]', 0xA1,$z-1,$z,$z2),
+        }
+
+        return "(?:$octets1|$octets2)";
+    }
+
+    # multiple octet code
+    else {
+        my(undef,$aa) = unpack 'Ca*', $_[0];
+        my(undef,$zz) = unpack 'Ca*', $_[1];
+
+        if ($a == $z) {
+            return '(?:' . join('|',
+                sprintf('\x%02X%s',         $a,         _octets($length-1,$aa,                $zz,                $modifier)),
+            ) . ')';
+        }
+        elsif (($a+1) == $z) {
+            return '(?:' . join('|',
+                sprintf('\x%02X%s',         $a,         _octets($length-1,$aa,                $maxchar[$length-1],$modifier)),
+                sprintf('\x%02X%s',              $z,    _octets($length-1,$minchar[$length-1],$zz,                $modifier)),
+            ) . ')';
+        }
+        elsif (($a+2) == $z) {
+            return '(?:' . join('|',
+                sprintf('\x%02X%s',         $a,         _octets($length-1,$aa,                $maxchar[$length-1],$modifier)),
+                sprintf('\x%02X%s',         $a+1,       _octets($length-1,$minchar[$length-1],$maxchar[$length-1],$modifier)),
+                sprintf('\x%02X%s',              $z,    _octets($length-1,$minchar[$length-1],$zz,                $modifier)),
+            ) . ')';
+        }
+        elsif (($a+3) == $z) {
+            return '(?:' . join('|',
+                sprintf('\x%02X%s',         $a,         _octets($length-1,$aa,                $maxchar[$length-1],$modifier)),
+                sprintf('[\x%02X\x%02X]%s', $a+1,$z-1,  _octets($length-1,$minchar[$length-1],$maxchar[$length-1],$modifier)),
+                sprintf('\x%02X%s',              $z,    _octets($length-1,$minchar[$length-1],$zz,                $modifier)),
+            ) . ')';
+        }
+        else {
+            return '(?:' . join('|',
+                sprintf('\x%02X%s',          $a,        _octets($length-1,$aa,                $maxchar[$length-1],$modifier)),
+                sprintf('[\x%02X-\x%02X]%s', $a+1,$z-1, _octets($length-1,$minchar[$length-1],$maxchar[$length-1],$modifier)),
+                sprintf('\x%02X%s',               $z,   _octets($length-1,$minchar[$length-1],$zz,                $modifier)),
+            ) . ')';
+        }
+    }
+}
+
+#
+# Big5Plus open character list for qr and not qr
+#
+sub _charlist {
 
     my $modifier = pop @_;
     my @char = @_;
@@ -754,12 +1063,6 @@ sub _charlist_qr {
         }
         elsif ($char[$i] =~ m/\A \\x ([0-9A-Fa-f]{1,2}) \z/oxms) {
             $char[$i] = CORE::chr hex $1;
-        }
-        elsif ($char[$i] =~ m/\A \\x \{ ([0-9A-Fa-f]{1,2}) \} \z/oxms) {
-            $char[$i] = pack 'H2', $1;
-        }
-        elsif ($char[$i] =~ m/\A \\x \{ ([0-9A-Fa-f]{3,4}) \} \z/oxms) {
-            $char[$i] = pack 'H4', $1;
         }
         elsif ($char[$i] =~ m/\A \\c ([\x40-\x5F]) \z/oxms) {
             $char[$i] = CORE::chr(CORE::ord($1) & 0x1F);
@@ -786,7 +1089,7 @@ sub _charlist_qr {
                 '\W' => '(?:[\x81-\xFE][\x00-\xFF]|[^\w])',
             }->{$1};
         }
-        elsif ($char[$i] =~ m/\A \\ ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) \z/oxms) {
+        elsif ($char[$i] =~ m/\A \\ ($q_char) \z/oxms) {
             $char[$i] = $1;
         }
     }
@@ -794,140 +1097,108 @@ sub _charlist_qr {
     # open character list
     my @singleoctet = ();
     my @charlist    = ();
-    if ((scalar(@char) == 1) or ((scalar(@char) >= 2) and ($char[1] ne '...'))) {
-        if ($char[0] =~ m/\A [\x00-\xFF] \z/oxms) {
-            push @singleoctet, $char[0];
-        }
-        else {
-            push @charlist, $char[0];
-        }
-    }
-    for (my $i=1; $i <= $#char-1; ) {
+    for (my $i=0; $i <= $#char; ) {
 
         # escaped -
-        if ($char[$i] eq '...') {
-
-            # range of single octet code
-            if (
-                ($char[$i-1] =~ m/\A [\x00-\xFF] \z/oxms) and
-                ($char[$i+1] =~ m/\A [\x00-\xFF] \z/oxms)
-            ) {
-                my $begin = unpack 'C', $char[$i-1];
-                my $end   = unpack 'C', $char[$i+1];
-                if ($begin > $end) {
-                    confess "$0: invalid [] range \"\\x" . unpack('H*',$char[$i-1]) . '-\\x' . unpack('H*',$char[$i+1]) . '" in regexp';
-                }
-                else {
-                    if ($modifier =~ m/i/oxms) {
-                        my %range = ();
-                        for my $c ($begin .. $end) {
-                            $range{CORE::ord CORE::uc CORE::chr $c} = 1;
-                            $range{CORE::ord CORE::lc CORE::chr $c} = 1;
-                        }
-
-                        my @lt = grep {$_ < $begin} sort {$a <=> $b} keys %range;
-                        if (scalar(@lt) == 1) {
-                            push @singleoctet, sprintf(q{\\x%02X},         $lt[0]);
-                        }
-                        elsif (scalar(@lt) >= 2) {
-                            push @singleoctet, sprintf(q{\\x%02X-\\x%02X}, $lt[0], $lt[-1]);
-                        }
-
-                        push @singleoctet, sprintf(q{\\x%02X-\\x%02X},     $begin, $end);
-
-                        my @gt = grep {$_ > $end  } sort {$a <=> $b} keys %range;
-                        if (scalar(@gt) == 1) {
-                            push @singleoctet, sprintf(q{\\x%02X},         $gt[0]);
-                        }
-                        elsif (scalar(@gt) >= 2) {
-                            push @singleoctet, sprintf(q{\\x%02X-\\x%02X}, $gt[0], $gt[-1]);
-                        }
-                    }
-                    else {
-                        push @singleoctet, sprintf(q{\\x%02X-\\x%02X},     $begin, $end);
-                    }
-                }
-            }
-
-            # range of double octet code
-            elsif (
-                ($char[$i-1] =~ m/\A [\x81-\xFE][\x00-\xFF] \z/oxms) and
-                ($char[$i+1] =~ m/\A [\x81-\xFE][\x00-\xFF] \z/oxms)
-            ) {
-                my($begin1,$begin2) = unpack 'CC', $char[$i-1];
-                my($end1,  $end2)   = unpack 'CC', $char[$i+1];
-                my $begin = $begin1 * 0x100 + $begin2;
-                my $end   = $end1   * 0x100 + $end2;
-                if ($begin > $end) {
-                    confess "$0: invalid [] range \"\\x" . unpack('H*',$char[$i-1]) . '-\\x' . unpack('H*',$char[$i+1]) . '" in regexp';
-                }
-                elsif ($begin1 == $end1) {
-                    push @charlist, sprintf(q{\\x%02X[\\x%02X-\\x%02X]}, $begin1, $begin2, $end2);
-                }
-                elsif (($begin1 + 1) == $end1) {
-                    push @charlist, sprintf(q{\\x%02X[\\x%02X-\\xFF]},   $begin1, $begin2);
-                    push @charlist, sprintf(q{\\x%02X[\\x00-\\x%02X]},   $end1,   $end2);
-                }
-                else {
-                    my @middle = ();
-                    for my $c ($begin1+1 .. $end1-1) {
-                        if ((0x81 <= $c and $c <= 0x9F) or (0xE0 <= $c and $c <= 0xFC)) {
-                            push @middle, $c;
-                        }
-                    }
-                    if (scalar(@middle) == 0) {
-                        push @charlist, sprintf(q{\\x%02X[\\x%02X-\\xFF]},         $begin1,    $begin2);
-                        push @charlist, sprintf(q{\\x%02X[\\x00-\\x%02X]},         $end1,      $end2);
-                    }
-                    elsif (scalar(@middle) == 1) {
-                        push @charlist, sprintf(q{\\x%02X[\\x%02X-\\xFF]},         $begin1,    $begin2);
-                        push @charlist, sprintf(q{\\x%02X[\\x00-\\xFF]},           $middle[0]);
-                        push @charlist, sprintf(q{\\x%02X[\\x00-\\x%02X]},         $end1,      $end2);
-                    }
-                    else {
-                        push @charlist, sprintf(q{\\x%02X[\\x%02X-\\xFF]},         $begin1,    $begin2);
-                        push @charlist, sprintf(q{[\\x%02X-\\x%02X][\\x00-\\xFF]}, $middle[0], $middle[-1]);
-                        push @charlist, sprintf(q{\\x%02X[\\x00-\\x%02X]},         $end1,      $end2);
-                    }
-                }
-            }
+        if (defined($char[$i+1]) and ($char[$i+1] eq '...')) {
+            $i += 1;
+            next;
+        }
+        elsif ($char[$i] eq '...') {
 
             # range error
+            if ((length($char[$i-1]) > length($char[$i+1])) or ($char[$i-1] gt $char[$i+1])) {
+                croak "$0: invalid [] range \"\\x" . unpack('H*',$char[$i-1]) . '-\\x' . unpack('H*',$char[$i+1]) . '" in regexp';
+            }
+
+            # range of single octet code and not ignore case
+            if ((length($char[$i-1]) == 1) and (length($char[$i+1]) == 1) and ($modifier !~ m/i/oxms)) {
+                my $a = unpack 'C', $char[$i-1];
+                my $z = unpack 'C', $char[$i+1];
+
+                if ($a == $z) {
+                    push @singleoctet, sprintf('\x%02X',        $a);
+                }
+                elsif (($a+1) == $z) {
+                    push @singleoctet, sprintf('\x%02X\x%02X',  $a, $z);
+                }
+                else {
+                    push @singleoctet, sprintf('\x%02X-\x%02X', $a, $z);
+                }
+            }
+
+            # range of multiple octet code
+            elsif (length($char[$i-1]) == length($char[$i+1])) {
+                push @charlist, _octets(length($char[$i-1]), $char[$i-1], $char[$i+1], $modifier);
+            }
+            elsif (length($char[$i-1]) == 1) {
+                if (length($char[$i+1]) == 2) {
+                    push @charlist,
+                        _octets(1, $char[$i-1], $maxchar[1], $modifier),
+                        _octets(2, $minchar[2], $char[$i+1], $modifier);
+                }
+                elsif (length($char[$i+1]) == 3) {
+                    push @charlist,
+                        _octets(1, $char[$i-1], $maxchar[1], $modifier),
+                        _octets(2, $minchar[2], $maxchar[2], $modifier),
+                        _octets(3, $minchar[3], $char[$i+1], $modifier);
+                }
+                elsif (length($char[$i+1]) == 4) {
+                    push @charlist,
+                        _octets(1, $char[$i-1], $maxchar[1], $modifier),
+                        _octets(2, $minchar[2], $maxchar[2], $modifier),
+                        _octets(3, $minchar[3], $maxchar[3], $modifier),
+                        _octets(4, $minchar[4], $char[$i+1], $modifier);
+                }
+            }
+            elsif (length($char[$i-1]) == 2) {
+                if (length($char[$i+1]) == 3) {
+                    push @charlist,
+                        _octets(2, $char[$i-1], $maxchar[2], $modifier),
+                        _octets(3, $minchar[3], $char[$i+1], $modifier);
+                }
+                elsif (length($char[$i+1]) == 4) {
+                    push @charlist,
+                        _octets(2, $char[$i-1], $maxchar[2], $modifier),
+                        _octets(3, $minchar[3], $maxchar[3], $modifier),
+                        _octets(4, $minchar[4], $char[$i+1], $modifier);
+                }
+            }
+            elsif (length($char[$i-1]) == 3) {
+                if (length($char[$i+1]) == 4) {
+                    push @charlist,
+                        _octets(3, $char[$i-1], $maxchar[3], $modifier),
+                        _octets(4, $minchar[4], $char[$i+1], $modifier);
+                }
+            }
             else {
-                confess "$0: invalid [] range \"\\x" . unpack('H*',$char[$i-1]) . '-\\x' . unpack('H*',$char[$i+1]) . '" in regexp';
+                croak "$0: invalid [] range \"\\x" . unpack('H*',$char[$i-1]) . '-\\x' . unpack('H*',$char[$i+1]) . '" in regexp';
             }
 
             $i += 2;
         }
 
         # /i modifier
-        elsif (($char[$i] =~ m/\A ([A-Za-z]) \z/oxms) and (($i+1 > $#char) or ($char[$i+1] ne '...'))) {
-            my $c = $1;
+        elsif ($char[$i] =~ m/\A [A-Za-z] \z/oxms) {
             if ($modifier =~ m/i/oxms) {
-                push @singleoctet, CORE::uc $c, CORE::lc $c;
+                push @singleoctet, CORE::uc $char[$i], CORE::lc $char[$i];
             }
             else {
-                push @singleoctet, $c;
+                push @singleoctet, $char[$i];
             }
             $i += 1;
         }
 
-        # single character
-        elsif ($char[$i] =~ m/\A (?: [\x00-\xFF] | \\d | \\h | \\s | \\v | \\w )  \z/oxms) {
+        # single character of single octet code
+        elsif ($char[$i] =~ m/\A (?: [\x00-\xFF] | \\d | \\h | \\s | \\v | \\w ) \z/oxms) {
             push @singleoctet, $char[$i];
             $i += 1;
         }
+
+        # single character of multiple octet code
         else {
             push @charlist, $char[$i];
             $i += 1;
-        }
-    }
-    if ((scalar(@char) >= 2) and ($char[-2] ne '...')) {
-        if ($char[-1] =~ m/\A [\x00-\xFF] \z/oxms) {
-            push @singleoctet, $char[-1];
-        }
-        else {
-            push @charlist, $char[-1];
         }
     }
 
@@ -939,8 +1210,8 @@ sub _charlist_qr {
         elsif (m/\A \r \z/oxms) {
             $_ = '\r';
         }
-        elsif (m/\A ([\x00-\x21\x7F-\xA0\xE0-\xFF]) \z/oxms) {
-            $_ = sprintf(q{\\x%02X}, CORE::ord $1);
+        elsif (m/\A ([\x00-\x20\x7F-\xFF]) \z/oxms) {
+            $_ = sprintf('\x%02X', CORE::ord $1);
         }
         elsif (m/\A [\x00-\xFF] \z/oxms) {
             $_ = quotemeta $_;
@@ -951,6 +1222,22 @@ sub _charlist_qr {
             $_ = $1 . quotemeta $2;
         }
     }
+
+    # return character list
+    return \@singleoctet, \@charlist;
+}
+
+#
+# Big5Plus open character list for qr
+#
+sub charlist_qr {
+
+    my $modifier = pop @_;
+    my @char = @_;
+
+    my($singleoctet, $charlist) = _charlist(@char, $modifier);
+    my @singleoctet = @$singleoctet;
+    my @charlist    = @$charlist;
 
     # return character list
     if (scalar(@singleoctet) == 0) {
@@ -975,238 +1262,38 @@ sub _charlist_qr {
 #
 # Big5Plus open character list for not qr
 #
-sub _charlist_not_qr {
+sub charlist_not_qr {
 
     my $modifier = pop @_;
     my @char = @_;
 
-    # unescape character
-    for (my $i=0; $i <= $#char; $i++) {
-
-        # escape - to ...
-        if ($char[$i] eq '-') {
-            if ((0 < $i) and ($i < $#char)) {
-                $char[$i] = '...';
-            }
-        }
-        elsif ($char[$i] =~ m/\A \\ ([0-7]{2,3}) \z/oxms) {
-            $char[$i] = CORE::chr oct $1;
-        }
-        elsif ($char[$i] =~ m/\A \\x ([0-9A-Fa-f]{1,2}) \z/oxms) {
-            $char[$i] = CORE::chr hex $1;
-        }
-        elsif ($char[$i] =~ m/\A \\x \{ ([0-9A-Fa-f]{1,2}) \} \z/oxms) {
-            $char[$i] = pack 'H2', $1;
-        }
-        elsif ($char[$i] =~ m/\A \\x \{ ([0-9A-Fa-f]{3,4}) \} \z/oxms) {
-            $char[$i] = pack 'H4', $1;
-        }
-        elsif ($char[$i] =~ m/\A \\c ([\x40-\x5F]) \z/oxms) {
-            $char[$i] = CORE::chr(CORE::ord($1) & 0x1F);
-        }
-        elsif ($char[$i] =~ m/\A (\\ [0nrtfbaedDhHsSvVwW]) \z/oxms) {
-            $char[$i] = {
-                '\0' => "\0",
-                '\n' => "\n",
-                '\r' => "\r",
-                '\t' => "\t",
-                '\f' => "\f",
-                '\b' => "\x08", # \b means backspace in character class
-                '\a' => "\a",
-                '\e' => "\e",
-                '\d' => '\d',
-                '\h' => '\h',
-                '\s' => '\s',
-                '\v' => '\v',
-                '\w' => '\w',
-                '\D' => '(?:[\x81-\xFE][\x00-\xFF]|[^\d])',
-                '\H' => '(?:[\x81-\xFE][\x00-\xFF]|[^\h])',
-                '\S' => '(?:[\x81-\xFE][\x00-\xFF]|[^\s])',
-                '\V' => '(?:[\x81-\xFE][\x00-\xFF]|[^\v])',
-                '\W' => '(?:[\x81-\xFE][\x00-\xFF]|[^\w])',
-            }->{$1};
-        }
-        elsif ($char[$i] =~ m/\A \\ ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) \z/oxms) {
-            $char[$i] = $1;
-        }
-    }
-
-    # open character list
-    my @singleoctet = ();
-    my @charlist    = ();
-    if ((scalar(@char) == 1) or ((scalar(@char) >= 2) and ($char[1] ne '...'))) {
-        if ($char[0] =~ m/\A [\x00-\xFF] \z/oxms) {
-            push @singleoctet, $char[0];
-        }
-        else {
-            push @charlist, $char[0];
-        }
-    }
-    for (my $i=1; $i <= $#char-1; ) {
-
-        # escaped -
-        if ($char[$i] eq '...') {
-
-            # range of single octet code
-            if (
-                ($char[$i-1] =~ m/\A [\x00-\xFF] \z/oxms) and
-                ($char[$i+1] =~ m/\A [\x00-\xFF] \z/oxms)
-            ) {
-                my $begin = unpack 'C', $char[$i-1];
-                my $end   = unpack 'C', $char[$i+1];
-                if ($begin > $end) {
-                    confess "$0: invalid [] range \"\\x" . unpack('H*',$char[$i-1]) . '-\\x' . unpack('H*',$char[$i+1]) . '" in regexp';
-                }
-                else {
-                    if ($modifier =~ m/i/oxms) {
-                        my %range = ();
-                        for my $c ($begin .. $end) {
-                            $range{CORE::ord CORE::uc CORE::chr $c} = 1;
-                            $range{CORE::ord CORE::lc CORE::chr $c} = 1;
-                        }
-
-                        my @lt = grep {$_ < $begin} sort {$a <=> $b} keys %range;
-                        if (scalar(@lt) == 1) {
-                            push @singleoctet, sprintf(q{\\x%02X},         $lt[0]);
-                        }
-                        elsif (scalar(@lt) >= 2) {
-                            push @singleoctet, sprintf(q{\\x%02X-\\x%02X}, $lt[0], $lt[-1]);
-                        }
-
-                        push @singleoctet, sprintf(q{\\x%02X-\\x%02X},     $begin, $end);
-
-                        my @gt = grep {$_ > $end  } sort {$a <=> $b} keys %range;
-                        if (scalar(@gt) == 1) {
-                            push @singleoctet, sprintf(q{\\x%02X},         $gt[0]);
-                        }
-                        elsif (scalar(@gt) >= 2) {
-                            push @singleoctet, sprintf(q{\\x%02X-\\x%02X}, $gt[0], $gt[-1]);
-                        }
-                    }
-                    else {
-                        push @singleoctet, sprintf(q{[\\x%02X-\\x%02X]},   $begin, $end);
-                    }
-                }
-            }
-
-            # range of double octet code
-            elsif (
-                ($char[$i-1] =~ m/\A [\x81-\xFE][\x00-\xFF] \z/oxms) and
-                ($char[$i+1] =~ m/\A [\x81-\xFE][\x00-\xFF] \z/oxms)
-            ) {
-                my($begin1,$begin2) = unpack 'CC', $char[$i-1];
-                my($end1,  $end2)   = unpack 'CC', $char[$i+1];
-                my $begin = $begin1 * 0x100 + $begin2;
-                my $end   = $end1   * 0x100 + $end2;
-                if ($begin > $end) {
-                    confess "$0: invalid [] range \"\\x" . unpack('H*',$char[$i-1]) . '-\\x' . unpack('H*',$char[$i+1]) . '" in regexp';
-                }
-                elsif ($begin1 == $end1) {
-                    push @charlist, sprintf(q{\\x%02X[\\x%02X-\\x%02X]}, $begin1, $begin2, $end2);
-                }
-                elsif (($begin1 + 1) == $end1) {
-                    push @charlist, sprintf(q{\\x%02X[\\x%02X-\\xFF]},   $begin1, $begin2);
-                    push @charlist, sprintf(q{\\x%02X[\\x00-\\x%02X]},   $end1,   $end2);
-                }
-                else {
-                    my @middle = ();
-                    for my $c ($begin1+1 .. $end1-1) {
-                        if ((0x81 <= $c and $c <= 0x9F) or (0xE0 <= $c and $c <= 0xFC)) {
-                            push @middle, $c;
-                        }
-                    }
-                    if (scalar(@middle) == 0) {
-                        push @charlist, sprintf(q{\\x%02X[\\x%02X-\\xFF]},         $begin1,    $begin2);
-                        push @charlist, sprintf(q{\\x%02X[\\x00-\\x%02X]},         $end1,      $end2);
-                    }
-                    elsif (scalar(@middle) == 1) {
-                        push @charlist, sprintf(q{\\x%02X[\\x%02X-\\xFF]},         $begin1,    $begin2);
-                        push @charlist, sprintf(q{\\x%02X[\\x00-\\xFF]},           $middle[0]);
-                        push @charlist, sprintf(q{\\x%02X[\\x00-\\x%02X]},         $end1,      $end2);
-                    }
-                    else {
-                        push @charlist, sprintf(q{\\x%02X[\\x%02X-\\xFF]},         $begin1,    $begin2);
-                        push @charlist, sprintf(q{[\\x%02X-\\x%02X][\\x00-\\xFF]}, $middle[0], $middle[-1]);
-                        push @charlist, sprintf(q{\\x%02X[\\x00-\\x%02X]},         $end1,      $end2);
-                    }
-                }
-            }
-
-            # range error
-            else {
-                confess "$0: invalid [] range \"\\x" . unpack('H*',$char[$i-1]) . '-\\x' . unpack('H*',$char[$i+1]) . '" in regexp';
-            }
-
-            $i += 2;
-        }
-
-        # /i modifier
-        elsif (($char[$i] =~ m/\A ([A-Za-z]) \z/oxms) and (($i+1 > $#char) or ($char[$i+1] ne '...'))) {
-            my $c = $1;
-            if ($modifier =~ m/i/oxms) {
-                push @singleoctet, CORE::uc $c, CORE::lc $c;
-            }
-            else {
-                push @singleoctet, $c;
-            }
-            $i += 1;
-        }
-
-        # single character
-        elsif ($char[$i] =~ m/\A (?: [\x00-\xFF] | \\d | \\h | \\s | \\v | \\w )  \z/oxms) {
-            push @singleoctet, $char[$i];
-            $i += 1;
-        }
-        else {
-            push @charlist, $char[$i];
-            $i += 1;
-        }
-    }
-    if ((scalar(@char) >= 2) and ($char[-2] ne '...')) {
-        if ($char[-1] =~ m/\A [\x00-\xFF] \z/oxms) {
-            push @singleoctet, $char[-1];
-        }
-        else {
-            push @charlist, $char[-1];
-        }
-    }
-
-    # quote metachar
-    for (@singleoctet) {
-        if (m/\A \n \z/oxms) {
-            $_ = '\n';
-        }
-        elsif (m/\A \r \z/oxms) {
-            $_ = '\r';
-        }
-        elsif (m/\A ([\x00-\x21\x7F-\xA0\xE0-\xFF]) \z/oxms) {
-            $_ = sprintf(q{\\x%02X}, CORE::ord $1);
-        }
-        elsif (m/\A [\x00-\xFF] \z/oxms) {
-            $_ = quotemeta $_;
-        }
-    }
-    for (@charlist) {
-        if (m/\A ([\x81-\xFE]) ([\x00-\xFF]) \z/oxms) {
-            $_ = $1 . quotemeta $2;
-        }
-    }
+    my($singleoctet, $charlist) = _charlist(@char, $modifier);
+    my @singleoctet = @$singleoctet;
+    my @charlist    = @$charlist;
 
     # return character list
     if (scalar(@charlist) >= 1) {
         if (scalar(@singleoctet) >= 1) {
+
+            # any character other than multiple octet and single octet character class
             return '(?!' . join('|', @charlist) . ')(?:[\x81-\xFE][\x00-\xFF]|[^'. join('', @singleoctet) . '])';
         }
         else {
-            return '(?!' . join('|', @charlist) . ')(?:[\x81-\xFE][\x00-\xFF])';
+
+            # any character other than multiple octet character class
+            return '(?!' . join('|', @charlist) . ")(?:$your_char)";
         }
     }
     else {
         if (scalar(@singleoctet) >= 1) {
+
+            # any character other than single octet character class
             return                                 '(?:[\x81-\xFE][\x00-\xFF]|[^'. join('', @singleoctet) . '])';
         }
         else {
-            return                                 '(?:[\x81-\xFE][\x00-\xFF])';
+
+            # any character
+            return                                 "(?:$your_char)";
         }
     }
 }
@@ -1216,13 +1303,18 @@ sub _charlist_not_qr {
 #
 sub Ebig5plus::chr($) {
 
-    local $_ = shift if @_;
+    my $c = @_ ? $_[0] : $_;
 
-    if ($_ > 0xFF) {
-        return pack 'CC', int($_ / 0x100), $_ % 0x100;
+    if ($c == 0x00) {
+        return "\x00";
     }
     else {
-        return CORE::chr $_;
+        my @chr = ();
+        while ($c > 0) {
+            unshift @chr, ($c % 0x100);
+            $c = int($c / 0x100);
+        }
+        return pack 'C*', @chr;
     }
 }
 
@@ -1231,11 +1323,18 @@ sub Ebig5plus::chr($) {
 #
 sub Ebig5plus::chr_() {
 
-    if ($_ > 0xFF) {
-        return pack 'CC', int($_ / 0x100), $_ % 0x100;
+    my $c = $_;
+
+    if ($c == 0x00) {
+        return "\x00";
     }
     else {
-        return CORE::chr $_;
+        my @chr = ();
+        while ($c > 0) {
+            unshift @chr, ($c % 0x100);
+            $c = int($c / 0x100);
+        }
+        return pack 'C*', @chr;
     }
 }
 
@@ -1246,9 +1345,13 @@ sub Ebig5plus::ord($) {
 
     local $_ = shift if @_;
 
-    if (m/\A [\x81-\xFE] /oxms) {
-        my($ord1,$ord2) = unpack 'CC', $_;
-        return $ord1 * 0x100 + $ord2;
+    if (m/\A ($q_char) /oxms) {
+        my @ord = unpack 'C*', $1;
+        my $ord = 0;
+        while (my $o = shift @ord) {
+            $ord = $ord * 0x100 + $o;
+        }
+        return $ord;
     }
     else {
         return CORE::ord $_;
@@ -1260,9 +1363,13 @@ sub Ebig5plus::ord($) {
 #
 sub Ebig5plus::ord_() {
 
-    if (m/\A [\x81-\xFE] /oxms) {
-        my($ord1,$ord2) = unpack 'CC', $_;
-        return $ord1 * 0x100 + $ord2;
+    if (m/\A ($q_char) /oxms) {
+        my @ord = unpack 'C*', $1;
+        my $ord = 0;
+        while (my $o = shift @ord) {
+            $ord = $ord * 0x100 + $o;
+        }
+        return $ord;
     }
     else {
         return CORE::ord $_;
@@ -1278,7 +1385,7 @@ sub Ebig5plus::reverse(@) {
         return CORE::reverse @_;
     }
     else {
-        return join '', CORE::reverse(join('',@_) =~ m/\G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxmsg);
+        return join '', CORE::reverse(join('',@_) =~ m/\G ($q_char) /oxmsg);
     }
 }
 
@@ -3010,7 +3117,7 @@ OUTER:
         my $tail;
 
         # if argument is within quotes strip em and do no globbing
-        if ($expr =~ m/\A " ((?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])*) " \z/oxms) {
+        if ($expr =~ m/\A " ((?:$q_char)*) " \z/oxms) {
             $expr = $1;
             if ($cond eq 'd') {
                 if (Ebig5plus::d $expr) {
@@ -3034,7 +3141,7 @@ OUTER:
                 push @glob, $expr;
                 next OUTER;
             }
-            if ($head =~ m/ \A (?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])*? [*?] /oxms) {
+            if ($head =~ m/ \A (?:$q_char)*? [*?] /oxms) {
                 if (@globdir = _do_glob('d', $head)) {
                     push @glob, _do_glob($cond, map {"$_$pathsep$tail"} @globdir);
                     next OUTER;
@@ -3047,11 +3154,11 @@ OUTER:
         }
 
         # If file component has no wildcards, we can avoid opendir
-        if ($expr !~ m/ \A (?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])*? [*?] /oxms) {
+        if ($expr !~ m/ \A (?:$q_char)*? [*?] /oxms) {
             if ($head eq '.') {
                 $head = '';
             }
-            if ($head ne '' and ($head =~ m/ \G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxmsg)[-1] ne $pathsep) {
+            if ($head ne '' and ($head =~ m/ \G ($q_char) /oxmsg)[-1] ne $pathsep) {
                 $head .= $pathsep;
             }
             $head .= $expr;
@@ -3074,16 +3181,16 @@ OUTER:
         if ($head eq '.') {
             $head = '';
         }
-        if ($head ne '' and ($head =~ m/ \G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxmsg)[-1] ne $pathsep) {
+        if ($head ne '' and ($head =~ m/ \G ($q_char) /oxmsg)[-1] ne $pathsep) {
             $head .= $pathsep;
         }
 
         my $pattern = '';
-        while ($expr =~ m/ \G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxgc) {
+        while ($expr =~ m/ \G ($q_char) /oxgc) {
             $pattern .= {
-                '*' => '(?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])*',
-            ### '?' => '(?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])',   # UNIX style
-                '?' => '(?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])?',  # DOS style
+                '*' => "(?:$your_char)*",
+            ### '?' => "(?:$your_char)",   # UNIX style
+                '?' => "(?:$your_char)?",  # DOS style
                 'a' => 'A',
                 'b' => 'B',
                 'c' => 'C',
@@ -3321,9 +3428,9 @@ sub Ebig5plus::unlink(@) {
             $unlink++;
         }
         elsif (_MSWin32_5Cended_path($_)) {
-            my @char = /\G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxmsg;
+            my @char = m/\G ($q_char) /oxmsg;
             my $file = join '', map {{'/' => '\\'}->{$_} || $_} @char;
-            if ($file =~ m/ \A (?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])*? [ ] /oxms) {
+            if ($file =~ m/ \A (?:$q_char)*? [ ] /oxms) {
                 $file = qq{"$file"};
             }
 
@@ -3392,9 +3499,9 @@ sub Ebig5plus::chdir(;$) {
 sub _MSWin32_5Cended_path {
 
     if ((@_ >= 1) and ($_[0] ne '')) {
-        if ($^O =~ /\A (?: MSWin32 | NetWare | symbian | dos ) \z/oxms) {
-            my @char = $_[0] =~ /\G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxmsg;
-            if ($char[-1] =~ m/\A [\x81-\xFE][\x5C] \z/oxms) {
+        if ($^O =~ m/\A (?: MSWin32 | NetWare | symbian | dos ) \z/oxms) {
+            my @char = $_[0] =~ /\G ($q_char) /oxmsg;
+            if ($char[-1] =~ m/ \x5C \z/oxms) {
                 return 1;
             }
         }
@@ -3529,7 +3636,7 @@ sub Big5Plus::length {
 
     local $_ = shift if @_;
 
-    return scalar m/\G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxmsg;
+    return scalar m/\G ($q_char) /oxmsg;
 }
 
 #
@@ -3540,25 +3647,25 @@ sub Big5Plus::substr ($$;$$) {
     if (defined $_[3]) {
         if (defined $_[4]) {
             my(undef,$offset,$length,$replacement) = @_;
-            if ($_[0] =~ s/\A ((?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF]){$offset}) ((?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF]){0,$length}) \z/$1$replacement/xms) {
+            if ($_[0] =~ s/\A ((?:$q_char){$offset}) ((?:$q_char){0,$length}) \z/$1$replacement/xms) {
                 return $2;
             }
         }
         else {
             my($expr,$offset,$length) = @_;
-            if ($expr =~ m/\A (?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF]){$offset} ((?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF]){0,$length}) \z/xms) {
+            if ($expr =~ m/\A (?:$q_char){$offset} ((?:$q_char){0,$length}) \z/xms) {
                 return $1;
             }
         }
     }
     else {
         my($expr,$offset) = @_;
-        if ($expr =~ m/\A (?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF]){$offset} (.*) \z/xms) {
+        if ($expr =~ m/\A (?:$q_char){$offset} (.*) \z/xms) {
             return $1;
         }
     }
 
-    confess "$0: Big5Plus::substr outside of string";
+    croak "$0: Big5Plus::substr outside of string";
 }
 
 #

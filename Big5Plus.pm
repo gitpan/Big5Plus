@@ -12,7 +12,7 @@ use 5.00503;
 use Ebig5plus;
 use vars qw($VERSION);
 
-$VERSION = sprintf '%d.%02d', q$Revision: 0.39 $ =~ m/(\d+)/oxmsg;
+$VERSION = sprintf '%d.%02d', q$Revision: 0.40 $ =~ m/(\d+)/oxmsg;
 
 use Fcntl;
 use Symbol;
@@ -35,14 +35,14 @@ sub unimport() {}
 sub Big5Plus::escape_script;
 
 # regexp of character
-my $qq_char   = qr/\\c[\x40-\x5F]|\\?(?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])/oxms;
-my  $q_char   = qr/[\x81-\xFE][\x00-\xFF]|[\x00-\xFF]/oxms;
-my $your_char = q {[\x81-\xFE][\x00-\xFF]|[\x00-\xFF]};
+my $your_char = q{[\x81-\xFE][\x00-\xFF]|[\x00-\xFF]};
+my $qq_char   = qr/\\c[\x40-\x5F]|\\?(?:$your_char)/oxms;
+my  $q_char   = qr/$your_char/oxms;
 
 # P.1023 Appendix W.9 Multibyte Anchoring
 # of ISBN 1-56592-224-7 CJKV Information Processing
 
-my $your_gap = q{\G(?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])*?};
+my $your_gap = qq{\\G(?:$your_char)*?};
 
 use vars qw($nest);
 
@@ -1670,7 +1670,7 @@ sub e_string {
     # of ISBN 1-56592-224-7 CJKV Information Processing
     # (and so on)
 
-    my @char = $string =~ m/ \G (\\?(?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])) /oxmsg;
+    my @char = $string =~ m/ \G (\\?(?:$q_char)) /oxmsg;
 
     # without { ... }
     if (not (grep(m/\A \{ \z/xms, @char) and grep(m/\A \} \z/xms, @char))) {
@@ -2115,6 +2115,24 @@ E_STRING_LOOP:
 }
 
 #
+# classic character class ( . \D \H \S \V \W )
+#
+sub classic_character_class {
+    my($char,$modifier) = @_;
+
+    return {
+        '.'  => ($modifier =~ /s/) ?
+                '(?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])' :
+                '(?:[\x81-\xFE][\x00-\xFF]|[^\n])',
+        '\D' => '(?:[\x81-\xFE][\x00-\xFF]|[^\d])',
+        '\H' => '(?:[\x81-\xFE][\x00-\xFF]|[^\h])',
+        '\S' => '(?:[\x81-\xFE][\x00-\xFF]|[^\s])',
+        '\V' => '(?:[\x81-\xFE][\x00-\xFF]|[^\v])',
+        '\W' => '(?:[\x81-\xFE][\x00-\xFF]|[^\w])',
+    }->{$char};
+}
+
+#
 # escape transliteration (tr/// or y///)
 #
 sub e_tr {
@@ -2180,10 +2198,7 @@ sub q_tr {
         return e_q('q', '{', '}', $charclass); # --> q{ }
     }
     else {
-        for my $char (
-            qw( ! " $ % & * + . : = ? @ ^ ` | ~ ),
-            "\xA1" .. "\xDF",
-        ) {
+        for my $char (qw( ! " $ % & * + . : = ? @ ^ ` | ~ )) {
             if ($charclass !~ m/\Q$char\E/xms) {
                 return e_q('q', $char, $char, $charclass);
             }
@@ -2201,18 +2216,18 @@ sub e_q {
 
     $slash = 'div';
 
-    my @char = $string =~ m/ \G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxmsg;
+    my @char = $string =~ m/ \G ($q_char) /oxmsg;
     for (my $i=0; $i <= $#char; $i++) {
 
-        # escape second octet of double octet
-        if ($char[$i] =~ m/\A ([\x81-\xFE]) (\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
+        # escape last octet of multiple octet
+        if ($char[$i] =~ m/\A ([\x80-\xFF].*) (\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
             $char[$i] = $1 . '\\' . $2;
         }
-        elsif (($char[$i] =~ m/\A ([\x81-\xFE]) (\\) \z/xms) and defined($char[$i+1]) and ($char[$i+1] eq '\\')) {
+        elsif (($char[$i] =~ m/\A ([\x80-\xFF].*) (\\) \z/xms) and defined($char[$i+1]) and ($char[$i+1] eq '\\')) {
             $char[$i] = $1 . '\\' . $2;
         }
     }
-    if (defined($char[-1]) and ($char[-1] =~ m/\A ([\x81-\xFE]) (\\) \z/xms)) {
+    if (defined($char[-1]) and ($char[-1] =~ m/\A ([\x80-\xFF].*) (\\) \z/xms)) {
         $char[-1] = $1 . '\\' . $2;
     }
 
@@ -2232,11 +2247,11 @@ sub e_qq {
     # escape character
     my $left_e  = 0;
     my $right_e = 0;
-    my @char = $string =~ m/ \G (\\?(?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])) /oxmsg;
+    my @char = $string =~ m/ \G (\\?(?:$q_char)) /oxmsg;
     for (my $i=0; $i <= $#char; $i++) {
 
-        # escape second octet of double octet
-        if ($char[$i] =~ m/\A ([\x81-\xFE]) ($metachar|\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
+        # escape last octet of multiple octet
+        if ($char[$i] =~ m/\A ([\x80-\xFF].*) ($metachar|\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
             $char[$i] = $1 . '\\' . $2;
         }
 
@@ -2312,10 +2327,7 @@ sub e_qw {
         return join '', $ope, '<',        $string, '>';
     }
     else {
-        for my $char (
-            qw( ! " $ % & * + - . / : = ? @ ^ ` | ~ ),
-            "\xA1" .. "\xDF",
-        ) {
+        for my $char (qw( ! " $ % & * + - . / : = ? @ ^ ` | ~ )) {
             if (not $octet{$char}) {
                 return join '', $ope,      $char, $string, $char;
             }
@@ -2349,11 +2361,11 @@ sub e_heredoc {
     # escape character
     my $left_e  = 0;
     my $right_e = 0;
-    my @char = $string =~ m/ \G (\\?(?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])) /oxmsg;
+    my @char = $string =~ m/ \G (\\?(?:$q_char)) /oxmsg;
     for (my $i=0; $i <= $#char; $i++) {
 
         # escape character
-        if ($char[$i] =~ m/\A ([\x81-\xFE]) ($metachar) \z/oxms) {
+        if ($char[$i] =~ m/\A ([\x80-\xFF].*) ($metachar) \z/oxms) {
             $char[$i] = $1 . '\\' . $2;
         }
 
@@ -2411,12 +2423,12 @@ sub e_m {
         \\  [0-7]{2,3}       |
         \\x [0-9A-Fa-f]{1,2} |
         \\c [\x40-\x5F]      |
-        \\  (?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) |
+        \\  (?:$q_char)      |
         [\$\@] $qq_variable  |
         \[\:\^ [a-z]+ \:\]   |
         \[\:   [a-z]+ \:\]   |
         \[\^                 |
-            (?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])
+            (?:$q_char)
     )}oxmsg;
 
     # unescape character
@@ -2424,13 +2436,13 @@ sub e_m {
     my $right_e = 0;
     for (my $i=0; $i <= $#char; $i++) {
 
-        # escape second octet of double octet
-        if ($char[$i] =~ m/\A \\? ([\x81-\xFE]) ($metachar|\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
+        # escape last octet of multiple octet
+        if ($char[$i] =~ m/\A \\? ([\x80-\xFF].*) ($metachar|\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
             $char[$i] = $1 . '\\' . $2;
         }
 
-        # join separated double octet
-        elsif ($char[$i] =~ m/\A \\ (?:2[0-7][1-7]|3[0-7][0-6]) \z/oxms) {
+        # join separated multiple octet
+        elsif ($char[$i] =~ m/\A \\ (?:20[1-6]|2[1-7][0-7]|3[0-6][0-7]|37[0-6]) \z/oxms) {
             if ($i < $#char) {
                 $char[$i] .= $char[$i+1];
                 splice @char, $i+1, 1;
@@ -2454,7 +2466,7 @@ sub e_m {
                     my $right = $i;
 
                     # [...]
-                    splice @char, $left, $right-$left+1, charlist_qr(@char[$left+1..$right-1], $modifier);
+                    splice @char, $left, $right-$left+1, Ebig5plus::charlist_qr(@char[$left+1..$right-1], $modifier);
 
                     $i = $left;
                     last;
@@ -2473,7 +2485,7 @@ sub e_m {
                     my $right = $i;
 
                     # [^...]
-                    splice @char, $left, $right-$left+1, charlist_not_qr(@char[$left+1..$right-1], $modifier);
+                    splice @char, $left, $right-$left+1, Ebig5plus::charlist_not_qr(@char[$left+1..$right-1], $modifier);
 
                     $i = $left;
                     last;
@@ -2482,17 +2494,7 @@ sub e_m {
         }
 
         # rewrite character class or escape character
-        elsif (my $char = {
-            '.'  => ($modifier =~ /s/) ?
-                    '(?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])' :
-                    '(?:[\x81-\xFE][\x00-\xFF]|[^\n])',
-            '\D' => '(?:[\x81-\xFE][\x00-\xFF]|[^\d])',
-            '\H' => '(?:[\x81-\xFE][\x00-\xFF]|[^\h])',
-            '\S' => '(?:[\x81-\xFE][\x00-\xFF]|[^\s])',
-            '\V' => '(?:[\x81-\xFE][\x00-\xFF]|[^\v])',
-            '\W' => '(?:[\x81-\xFE][\x00-\xFF]|[^\w])',
-            }->{$char[$i]}
-        ) {
+        elsif (my $char = classic_character_class($char[$i],$modifier)) {
             $char[$i] = $char;
         }
 
@@ -2542,24 +2544,11 @@ sub e_m {
             }
         }
 
-        # quote double octet character before ? + * {
-        elsif (
-            ($i >= 1) and
-            ($char[$i] =~ m/\A [\?\+\*\{] \z/oxms) and
-            ($char[$i-1] =~ m/\A 
-                (?:
-                        [\x81-\xFE] | 
-                    \\  (?:2[0-7][1-7]|3[0-7][0-6]) |
-                    \\x (?:8[1-9A-Fa-f]|[9A-Ea-e][0-9A-Fa-f]|[Ff][0-9A-Ea-e])
-                )
-                (?:
-                        [\x00-\xFF] |
-                    \\  [0-7]{2,3} |
-                    \\x [0-9-A-Fa-f]{1,2}
-                )
-             \z/oxms)
-        ) {
-            $char[$i-1] = '(?:' . $char[$i-1] . ')';
+        # quote character before ? + * {
+        elsif (($i >= 1) and ($char[$i] =~ m/\A [\?\+\*\{] \z/oxms)) {
+            if ($char[$i-1] !~ m/\A (?:[\x00-\xFF]|\\[0-7]{2,3}|\\x[0-9-A-Fa-f]{1,2}) \z/oxms) {
+                $char[$i-1] = '(?:' . $char[$i-1] . ')';
+            }
         }
     }
 
@@ -2589,14 +2578,14 @@ sub e_m_q {
         \[\:\^ [a-z]+ \:\] |
         \[\:   [a-z]+ \:\] |
         \[\^               |
-        \\?    (?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])
+        \\?    (?:$q_char)
     )}oxmsg;
 
     # unescape character
     for (my $i=0; $i <= $#char; $i++) {
 
-        # escape second octet of double octet
-        if ($char[$i] =~ m/\A ([\x81-\xFE]) ([\\|\[\{\^]|\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
+        # escape last octet of multiple octet
+        if ($char[$i] =~ m/\A ([\x80-\xFF].*) ([\\|\[\{\^]|\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
             $char[$i] = $1 . '\\' . $2;
         }
 
@@ -2611,7 +2600,7 @@ sub e_m_q {
                     my $right = $i;
 
                     # [...]
-                    splice @char, $left, $right-$left+1, charlist_qr(@char[$left+1..$right-1], $modifier);
+                    splice @char, $left, $right-$left+1, Ebig5plus::charlist_qr(@char[$left+1..$right-1], $modifier);
 
                     $i = $left;
                     last;
@@ -2630,7 +2619,7 @@ sub e_m_q {
                     my $right = $i;
 
                     # [^...]
-                    splice @char, $left, $right-$left+1, charlist_not_qr(@char[$left+1..$right-1], $modifier);
+                    splice @char, $left, $right-$left+1, Ebig5plus::charlist_not_qr(@char[$left+1..$right-1], $modifier);
 
                     $i = $left;
                     last;
@@ -2639,17 +2628,7 @@ sub e_m_q {
         }
 
         # rewrite character class or escape character
-        elsif (my $char = {
-            '.'  => ($modifier =~ /s/) ?
-                    '(?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])' :
-                    '(?:[\x81-\xFE][\x00-\xFF]|[^\n])',
-            '\D' => '(?:[\x81-\xFE][\x00-\xFF]|[^\d])',
-            '\H' => '(?:[\x81-\xFE][\x00-\xFF]|[^\h])',
-            '\S' => '(?:[\x81-\xFE][\x00-\xFF]|[^\s])',
-            '\V' => '(?:[\x81-\xFE][\x00-\xFF]|[^\v])',
-            '\W' => '(?:[\x81-\xFE][\x00-\xFF]|[^\w])',
-            }->{$char[$i]}
-        ) {
+        elsif (my $char = classic_character_class($char[$i],$modifier)) {
             $char[$i] = $char;
         }
 
@@ -2661,13 +2640,11 @@ sub e_m_q {
             }
         }
 
-        # quote double octet character before ? + * {
-        elsif (
-            ($i >= 1) and
-            ($char[$i] =~ m/\A [\?\+\*\{] \z/oxms) and
-            ($char[$i-1] =~ m/\A [\x81-\xFE] \\? [\x00-\xFF] \z/oxms)
-        ) {
-            $char[$i-1] = '(?:' . $char[$i-1] . ')';
+        # quote character before ? + * {
+        elsif (($i >= 1) and ($char[$i] =~ m/\A [\?\+\*\{] \z/oxms)) {
+            if ($char[$i-1] !~ m/\A [\x00-\xFF] \z/oxms) {
+                $char[$i-1] = '(?:' . $char[$i-1] . ')';
+            }
         }
     }
 
@@ -2691,12 +2668,12 @@ sub e_s1 {
         \\  [0-7]{1,3}       |
         \\x [0-9A-Fa-f]{1,2} |
         \\c [\x40-\x5F]      |
-        \\  (?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) |
+        \\  (?:$q_char)      |
         [\$\@] $qq_variable  |
         \[\:\^ [a-z]+ \:\]   |
         \[\:   [a-z]+ \:\]   |
         \[\^                 |
-            (?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])
+            (?:$q_char)
     )}oxmsg;
 
     # unescape character
@@ -2704,8 +2681,8 @@ sub e_s1 {
     my $right_e = 0;
     for (my $i=0; $i <= $#char; $i++) {
 
-        # escape second octet of double octet
-        if ($char[$i] =~ m/\A \\? ([\x81-\xFE]) ($metachar|\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
+        # escape last octet of multiple octet
+        if ($char[$i] =~ m/\A \\? ([\x80-\xFF].*) ($metachar|\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
             $char[$i] = $1 . '\\' . $2;
         }
 
@@ -2725,8 +2702,8 @@ sub e_s1 {
         elsif ($char[$i] =~ m/\A (\\) ((\d)\d*) \z/oxms) {
             if (($3 eq '0') or ($2 >= 40)) {
 
-                # join separated double octet
-                if ($char[$i] =~ m/\A \\ (?:2[0-7][1-7]|3[0-7][0-6]) \z/oxms) {
+                # join separated multiple octet
+                if ($char[$i] =~ m/\A \\ (?:20[1-6]|2[1-7][0-7]|3[0-6][0-7]|37[0-6]) \z/oxms) {
                     if ($i < $#char) {
                         $char[$i] .= $char[$i+1];
                         splice @char, $i+1, 1;
@@ -2738,7 +2715,7 @@ sub e_s1 {
             }
         }
 
-        # join separated double octet
+        # join separated multiple octet
         elsif ($char[$i] =~ m/\A \\x (?:8[1-9A-Fa-f]|[9A-Ea-e][0-9A-Fa-f]|[Ff][0-9A-Ea-e]) \z/oxms) {
             if ($i < $#char) {
                 $char[$i] .= $char[$i+1];
@@ -2757,7 +2734,7 @@ sub e_s1 {
                     my $right = $i;
 
                     # [...]
-                    splice @char, $left, $right-$left+1, charlist_qr(@char[$left+1..$right-1], $modifier);
+                    splice @char, $left, $right-$left+1, Ebig5plus::charlist_qr(@char[$left+1..$right-1], $modifier);
 
                     $i = $left;
                     last;
@@ -2776,7 +2753,7 @@ sub e_s1 {
                     my $right = $i;
 
                     # [^...]
-                    splice @char, $left, $right-$left+1, charlist_not_qr(@char[$left+1..$right-1], $modifier);
+                    splice @char, $left, $right-$left+1, Ebig5plus::charlist_not_qr(@char[$left+1..$right-1], $modifier);
 
                     $i = $left;
                     last;
@@ -2785,17 +2762,7 @@ sub e_s1 {
         }
 
         # rewrite character class or escape character
-        elsif (my $char = {
-            '.'  => ($modifier =~ /s/) ?
-                    '(?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])' :
-                    '(?:[\x81-\xFE][\x00-\xFF]|[^\n])',
-            '\D' => '(?:[\x81-\xFE][\x00-\xFF]|[^\d])',
-            '\H' => '(?:[\x81-\xFE][\x00-\xFF]|[^\h])',
-            '\S' => '(?:[\x81-\xFE][\x00-\xFF]|[^\s])',
-            '\V' => '(?:[\x81-\xFE][\x00-\xFF]|[^\v])',
-            '\W' => '(?:[\x81-\xFE][\x00-\xFF]|[^\w])',
-            }->{$char[$i]}
-        ) {
+        elsif (my $char = classic_character_class($char[$i],$modifier)) {
             $char[$i] = $char;
         }
 
@@ -2845,24 +2812,11 @@ sub e_s1 {
             }
         }
 
-        # quote double octet character before ? + * {
-        elsif (
-            ($i >= 1) and
-            ($char[$i] =~ m/\A [\?\+\*\{] \z/oxms) and
-            ($char[$i-1] =~ m/\A 
-                (?:
-                        [\x81-\xFE] | 
-                    \\  (?:2[0-7][1-7]|3[0-7][0-6]) |
-                    \\x (?:8[1-9A-Fa-f]|[9A-Ea-e][0-9A-Fa-f]|[Ff][0-9A-Ea-e])
-                )
-                (?:
-                        [\x00-\xFF] |
-                    \\  [0-7]{2,3} |
-                    \\x [0-9-A-Fa-f]{1,2}
-                )
-             \z/oxms)
-        ) {
-            $char[$i-1] = '(?:' . $char[$i-1] . ')';
+        # quote character before ? + * {
+        elsif (($i >= 1) and ($char[$i] =~ m/\A [\?\+\*\{] \z/oxms)) {
+            if ($char[$i-1] !~ m/\A (?:[\x00-\xFF]|\\[0-7]{2,3}|\\x[0-9-A-Fa-f]{1,2}) \z/oxms) {
+                $char[$i-1] = '(?:' . $char[$i-1] . ')';
+            }
         }
     }
 
@@ -2893,12 +2847,12 @@ sub e_s1_dol {
         \\  [0-7]{1,3}       |
         \\x [0-9A-Fa-f]{1,2} |
         \\c [\x40-\x5F]      |
-        \\  (?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) |
+        \\  (?:$q_char)      |
         [\$\@] $qq_variable  |
         \[\:\^ [a-z]+ \:\]   |
         \[\:   [a-z]+ \:\]   |
         \[\^                 |
-            (?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])
+            (?:$q_char)
     )}oxmsg;
 
     # unescape character
@@ -2906,8 +2860,8 @@ sub e_s1_dol {
     my $right_e = 0;
     for (my $i=0; $i <= $#char; $i++) {
 
-        # escape second octet of double octet
-        if ($char[$i] =~ m/\A \\? ([\x81-\xFE]) ($metachar|\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
+        # escape last octet of multiple octet
+        if ($char[$i] =~ m/\A \\? ([\x80-\xFF].*) ($metachar|\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
             $char[$i] = $1 . '\\' . $2;
         }
 
@@ -2920,8 +2874,8 @@ sub e_s1_dol {
         elsif ($char[$i] =~ m/\A (\\) ((\d)\d*) \z/oxms) {
             if (($3 eq '0') or ($2 >= 40)) {
 
-                # join separated double octet
-                if ($char[$i] =~ m/\A \\ (?:2[0-7][1-7]|3[0-7][0-6]) \z/oxms) {
+                # join separated multiple octet
+                if ($char[$i] =~ m/\A \\ (?:20[1-6]|2[1-7][0-7]|3[0-6][0-7]|37[0-6]) \z/oxms) {
                     if ($i < $#char) {
                         $char[$i] .= $char[$i+1];
                         splice @char, $i+1, 1;
@@ -2933,7 +2887,7 @@ sub e_s1_dol {
             }
         }
 
-        # join separated double octet
+        # join separated multiple octet
         elsif ($char[$i] =~ m/\A \\x (?:8[1-9A-Fa-f]|[9A-Ea-e][0-9A-Fa-f]|[Ff][0-9A-Ea-e]) \z/oxms) {
             if ($i < $#char) {
                 $char[$i] .= $char[$i+1];
@@ -2952,7 +2906,7 @@ sub e_s1_dol {
                     my $right = $i;
 
                     # [...]
-                    splice @char, $left, $right-$left+1, charlist_qr(@char[$left+1..$right-1], $modifier);
+                    splice @char, $left, $right-$left+1, Ebig5plus::charlist_qr(@char[$left+1..$right-1], $modifier);
 
                     $i = $left;
                     last;
@@ -2971,7 +2925,7 @@ sub e_s1_dol {
                     my $right = $i;
 
                     # [^...]
-                    splice @char, $left, $right-$left+1, charlist_not_qr(@char[$left+1..$right-1], $modifier);
+                    splice @char, $left, $right-$left+1, Ebig5plus::charlist_not_qr(@char[$left+1..$right-1], $modifier);
 
                     $i = $left;
                     last;
@@ -2980,17 +2934,7 @@ sub e_s1_dol {
         }
 
         # rewrite character class or escape character
-        elsif (my $char = {
-            '.'  => ($modifier =~ /s/) ?
-                    '(?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])' :
-                    '(?:[\x81-\xFE][\x00-\xFF]|[^\n])',
-            '\D' => '(?:[\x81-\xFE][\x00-\xFF]|[^\d])',
-            '\H' => '(?:[\x81-\xFE][\x00-\xFF]|[^\h])',
-            '\S' => '(?:[\x81-\xFE][\x00-\xFF]|[^\s])',
-            '\V' => '(?:[\x81-\xFE][\x00-\xFF]|[^\v])',
-            '\W' => '(?:[\x81-\xFE][\x00-\xFF]|[^\w])',
-            }->{$char[$i]}
-        ) {
+        elsif (my $char = classic_character_class($char[$i],$modifier)) {
             $char[$i] = $char;
         }
 
@@ -3040,24 +2984,11 @@ sub e_s1_dol {
             }
         }
 
-        # quote double octet character before ? + * {
-        elsif (
-            ($i >= 1) and
-            ($char[$i] =~ m/\A [\?\+\*\{] \z/oxms) and
-            ($char[$i-1] =~ m/\A 
-                (?:
-                        [\x81-\xFE] | 
-                    \\  (?:2[0-7][1-7]|3[0-7][0-6]) |
-                    \\x (?:8[1-9A-Fa-f]|[9A-Ea-e][0-9A-Fa-f]|[Ff][0-9A-Ea-e])
-                )
-                (?:
-                        [\x00-\xFF] |
-                    \\  [0-7]{2,3} |
-                    \\x [0-9-A-Fa-f]{1,2}
-                )
-             \z/oxms)
-        ) {
-            $char[$i-1] = '(?:' . $char[$i-1] . ')';
+        # quote character before ? + * {
+        elsif (($i >= 1) and ($char[$i] =~ m/\A [\?\+\*\{] \z/oxms)) {
+            if ($char[$i-1] !~ m/\A (?:[\x00-\xFF]|\\[0-7]{2,3}|\\x[0-9-A-Fa-f]{1,2}) \z/oxms) {
+                $char[$i-1] = '(?:' . $char[$i-1] . ')';
+            }
         }
     }
 
@@ -3087,14 +3018,14 @@ sub e_s1_q {
         \[\:\^ [a-z]+ \:\] |
         \[\:   [a-z]+ \:\] |
         \[\^               |
-        \\?    (?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])
+        \\?    (?:$q_char)
     )}oxmsg;
 
     # unescape character
     for (my $i=0; $i <= $#char; $i++) {
 
-        # escape second octet of double octet
-        if ($char[$i] =~ m/\A ([\x81-\xFE]) ([\\|\[\{\^]|\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
+        # escape last octet of multiple octet
+        if ($char[$i] =~ m/\A ([\x80-\xFF].*) ([\\|\[\{\^]|\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
             $char[$i] = $1 . '\\' . $2;
         }
 
@@ -3124,7 +3055,7 @@ sub e_s1_q {
                     my $right = $i;
 
                     # [...]
-                    splice @char, $left, $right-$left+1, charlist_qr(@char[$left+1..$right-1], $modifier);
+                    splice @char, $left, $right-$left+1, Ebig5plus::charlist_qr(@char[$left+1..$right-1], $modifier);
 
                     $i = $left;
                     last;
@@ -3143,7 +3074,7 @@ sub e_s1_q {
                     my $right = $i;
 
                     # [^...]
-                    splice @char, $left, $right-$left+1, charlist_not_qr(@char[$left+1..$right-1], $modifier);
+                    splice @char, $left, $right-$left+1, Ebig5plus::charlist_not_qr(@char[$left+1..$right-1], $modifier);
 
                     $i = $left;
                     last;
@@ -3152,17 +3083,7 @@ sub e_s1_q {
         }
 
         # rewrite character class or escape character
-        elsif (my $char = {
-            '.'  => ($modifier =~ /s/) ?
-                    '(?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])' :
-                    '(?:[\x81-\xFE][\x00-\xFF]|[^\n])',
-            '\D' => '(?:[\x81-\xFE][\x00-\xFF]|[^\d])',
-            '\H' => '(?:[\x81-\xFE][\x00-\xFF]|[^\h])',
-            '\S' => '(?:[\x81-\xFE][\x00-\xFF]|[^\s])',
-            '\V' => '(?:[\x81-\xFE][\x00-\xFF]|[^\v])',
-            '\W' => '(?:[\x81-\xFE][\x00-\xFF]|[^\w])',
-            }->{$char[$i]}
-        ) {
+        elsif (my $char = classic_character_class($char[$i],$modifier)) {
             $char[$i] = $char;
         }
 
@@ -3174,13 +3095,11 @@ sub e_s1_q {
             }
         }
 
-        # quote double octet character before ? + * {
-        elsif (
-            ($i >= 1) and
-            ($char[$i] =~ m/\A [\?\+\*\{] \z/oxms) and
-            ($char[$i-1] =~ m/\A [\x81-\xFE] \\? [\x00-\xFF] \z/oxms)
-        ) {
-            $char[$i-1] = '(?:' . $char[$i-1] . ')';
+        # quote character before ? + * {
+        elsif (($i >= 1) and ($char[$i] =~ m/\A [\?\+\*\{] \z/oxms)) {
+            if ($char[$i-1] !~ m/\A [\x00-\xFF] \z/oxms) {
+                $char[$i-1] = '(?:' . $char[$i-1] . ')';
+            }
         }
     }
     return join '', $ope, $delimiter, qq{\\G((?:$your_char)*?)}, @char, $end_delimiter;
@@ -3200,11 +3119,14 @@ sub e_s2 {
     # escape character
     my $left_e  = 0;
     my $right_e = 0;
-    my @char = $string =~ m/ \G (\$\d+|\\\d+|->|=>|\\?(?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])) /oxmsg;
+    my @char = $string =~ m/ \G (\$\d+|\\\d+|->|=>|\\?(?:$q_char)) /oxmsg;
     for (my $i=0; $i <= $#char; $i++) {
 
-        # escape second octet of double octet
-        if ($char[$i] =~ m/\A ([\x81-\xFE]) ($metachar|\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
+        # escape last octet of multiple octet
+        if (($delimiter ne '') and $char[$i] =~ m/\A ([\x80-\xFF].*) ($metachar|\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
+            $char[$i] = $1 . '\\' . $2;
+        }
+        elsif (($delimiter eq '') and $char[$i] =~ m/\A ([\x80-\xFF].*) ($metachar|\Q$end_delimiter\E) \z/xms) {
             $char[$i] = $1 . '\\' . $2;
         }
 
@@ -3294,11 +3216,14 @@ sub e_s2_dol {
     # escape character
     my $left_e  = 0;
     my $right_e = 0;
-    my @char = $string =~ m/ \G (\$\d+|\\\d+|->|=>|\\?(?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])) /oxmsg;
+    my @char = $string =~ m/ \G (\$\d+|\\\d+|->|=>|\\?(?:$q_char)) /oxmsg;
     for (my $i=0; $i <= $#char; $i++) {
 
-        # escape second octet of double octet
-        if ($char[$i] =~ m/\A ([\x81-\xFE]) ($metachar|\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
+        # escape last octet of multiple octet
+        if (($delimiter ne '') and $char[$i] =~ m/\A ([\x80-\xFF].*) ($metachar|\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
+            $char[$i] = $1 . '\\' . $2;
+        }
+        elsif (($delimiter eq '') and $char[$i] =~ m/\A ([\x80-\xFF].*) ($metachar|\Q$end_delimiter\E) \z/xms) {
             $char[$i] = $1 . '\\' . $2;
         }
 
@@ -3377,17 +3302,24 @@ sub e_s2_q {
 
     $slash = 'div';
 
-    my @char = $string =~ m/ \G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxmsg;
+    my @char = $string =~ m/ \G ($q_char) /oxmsg;
+
     for (my $i=0; $i <= $#char; $i++) {
-
-        # escape second octet of double octet
-        if ($char[$i] =~ m/\A ([\x81-\xFE]) (\\|\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
-            $char[$i] = $1 . '\\' . $2;
+        if ($delimiter ne '') {
+            if ($char[$i] =~ m/\A ([\x80-\xFF].*) (\\|\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
+                $char[$i] = $1 . '\\' . $2;
+            }
+            elsif ($char[$i] =~ m/\A (\\|\$|\@|\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
+                $char[$i] = '\\' . $1;
+            }
         }
-
-        # escape single octet
-        elsif ($char[$i] =~ m/\A (\\|\$|\@|\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
-            $char[$i] = '\\' . $1;
+        else {
+            if ($char[$i] =~ m/\A ([\x80-\xFF].*) (\\|\Q$end_delimiter\E) \z/xms) {
+                $char[$i] = $1 . '\\' . $2;
+            }
+            elsif ($char[$i] =~ m/\A (\\|\$|\@|\Q$end_delimiter\E) \z/xms) {
+                $char[$i] = '\\' . $1;
+            }
         }
     }
 
@@ -3422,12 +3354,12 @@ sub e_qr {
         \\  [0-7]{2,3}       |
         \\x [0-9A-Fa-f]{1,2} |
         \\c [\x40-\x5F]      |
-        \\  (?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) |
+        \\  (?:$q_char)      |
         [\$\@] $qq_variable  |
         \[\:\^ [a-z]+ \:\]   |
         \[\:   [a-z]+ \:\]   |
         \[\^                 |
-            (?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])
+            (?:$q_char)
     )}oxmsg;
 
     # unescape character
@@ -3435,13 +3367,13 @@ sub e_qr {
     my $right_e = 0;
     for (my $i=0; $i <= $#char; $i++) {
 
-        # escape second octet of double octet
-        if ($char[$i] =~ m/\A \\? ([\x81-\xFE]) ($metachar|\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
+        # escape last octet of multiple octet
+        if ($char[$i] =~ m/\A \\? ([\x80-\xFF].*) ($metachar|\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
             $char[$i] = $1 . '\\' . $2;
         }
 
-        # join separated double octet
-        elsif ($char[$i] =~ m/\A \\ (?:2[0-7][1-7]|3[0-7][0-6]) \z/oxms) {
+        # join separated multiple octet
+        elsif ($char[$i] =~ m/\A \\ (?:20[1-6]|2[1-7][0-7]|3[0-6][0-7]|37[0-6]) \z/oxms) {
             if ($i < $#char) {
                 $char[$i] .= $char[$i+1];
                 splice @char, $i+1, 1;
@@ -3465,7 +3397,7 @@ sub e_qr {
                     my $right = $i;
 
                     # [...]
-                    splice @char, $left, $right-$left+1, charlist_qr(@char[$left+1..$right-1], $modifier);
+                    splice @char, $left, $right-$left+1, Ebig5plus::charlist_qr(@char[$left+1..$right-1], $modifier);
 
                     $i = $left;
                     last;
@@ -3484,7 +3416,7 @@ sub e_qr {
                     my $right = $i;
 
                     # [^...]
-                    splice @char, $left, $right-$left+1, charlist_not_qr(@char[$left+1..$right-1], $modifier);
+                    splice @char, $left, $right-$left+1, Ebig5plus::charlist_not_qr(@char[$left+1..$right-1], $modifier);
 
                     $i = $left;
                     last;
@@ -3493,17 +3425,7 @@ sub e_qr {
         }
 
         # rewrite character class or escape character
-        elsif (my $char = {
-            '.'  => ($modifier =~ /s/) ?
-                    '(?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])' :
-                    '(?:[\x81-\xFE][\x00-\xFF]|[^\n])',
-            '\D' => '(?:[\x81-\xFE][\x00-\xFF]|[^\d])',
-            '\H' => '(?:[\x81-\xFE][\x00-\xFF]|[^\h])',
-            '\S' => '(?:[\x81-\xFE][\x00-\xFF]|[^\s])',
-            '\V' => '(?:[\x81-\xFE][\x00-\xFF]|[^\v])',
-            '\W' => '(?:[\x81-\xFE][\x00-\xFF]|[^\w])',
-            }->{$char[$i]}
-        ) {
+        elsif (my $char = classic_character_class($char[$i],$modifier)) {
             $char[$i] = $char;
         }
 
@@ -3553,24 +3475,11 @@ sub e_qr {
             }
         }
 
-        # quote double octet character before ? + * {
-        elsif (
-            ($i >= 1) and
-            ($char[$i] =~ m/\A [\?\+\*\{] \z/oxms) and
-            ($char[$i-1] =~ m/\A 
-                (?:
-                        [\x81-\xFE] | 
-                    \\  (?:2[0-7][1-7]|3[0-7][0-6]) |
-                    \\x (?:8[1-9A-Fa-f]|[9A-Ea-e][0-9A-Fa-f]|[Ff][0-9A-Ea-e])
-                )
-                (?:
-                        [\x00-\xFF] |
-                    \\  [0-7]{2,3} |
-                    \\x [0-9-A-Fa-f]{1,2}
-                )
-             \z/oxms)
-        ) {
-            $char[$i-1] = '(?:' . $char[$i-1] . ')';
+        # quote character before ? + * {
+        elsif (($i >= 1) and ($char[$i] =~ m/\A [\?\+\*\{] \z/oxms)) {
+            if ($char[$i-1] !~ m/\A (?:[\x00-\xFF]|\\[0-7]{2,3}|\\x[0-9-A-Fa-f]{1,2}) \z/oxms) {
+                $char[$i-1] = '(?:' . $char[$i-1] . ')';
+            }
         }
     }
 
@@ -3600,14 +3509,14 @@ sub e_qr_q {
         \[\:\^ [a-z]+ \:\] |
         \[\:   [a-z]+ \:\] |
         \[\^               |
-        \\?    (?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])
+        \\?    (?:$q_char)
     )}oxmsg;
 
     # unescape character
     for (my $i=0; $i <= $#char; $i++) {
 
-        # escape second octet of double octet
-        if ($char[$i] =~ m/\A ([\x81-\xFE]) ([\\|\[\{\^]|\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
+        # escape last octet of multiple octet
+        if ($char[$i] =~ m/\A ([\x80-\xFF].*) ([\\|\[\{\^]|\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
             $char[$i] = $1 . '\\' . $2;
         }
 
@@ -3622,7 +3531,7 @@ sub e_qr_q {
                     my $right = $i;
 
                     # [...]
-                    splice @char, $left, $right-$left+1, charlist_qr(@char[$left+1..$right-1], $modifier);
+                    splice @char, $left, $right-$left+1, Ebig5plus::charlist_qr(@char[$left+1..$right-1], $modifier);
 
                     $i = $left;
                     last;
@@ -3641,7 +3550,7 @@ sub e_qr_q {
                     my $right = $i;
 
                     # [^...]
-                    splice @char, $left, $right-$left+1, charlist_not_qr(@char[$left+1..$right-1], $modifier);
+                    splice @char, $left, $right-$left+1, Ebig5plus::charlist_not_qr(@char[$left+1..$right-1], $modifier);
 
                     $i = $left;
                     last;
@@ -3650,17 +3559,7 @@ sub e_qr_q {
         }
 
         # rewrite character class or escape character
-        elsif (my $char = {
-            '.'  => ($modifier =~ /s/) ?
-                    '(?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])' :
-                    '(?:[\x81-\xFE][\x00-\xFF]|[^\n])',
-            '\D' => '(?:[\x81-\xFE][\x00-\xFF]|[^\d])',
-            '\H' => '(?:[\x81-\xFE][\x00-\xFF]|[^\h])',
-            '\S' => '(?:[\x81-\xFE][\x00-\xFF]|[^\s])',
-            '\V' => '(?:[\x81-\xFE][\x00-\xFF]|[^\v])',
-            '\W' => '(?:[\x81-\xFE][\x00-\xFF]|[^\w])',
-            }->{$char[$i]}
-        ) {
+        elsif (my $char = classic_character_class($char[$i],$modifier)) {
             $char[$i] = $char;
         }
 
@@ -3672,13 +3571,11 @@ sub e_qr_q {
             }
         }
 
-        # quote double octet character before ? + * {
-        elsif (
-            ($i >= 1) and
-            ($char[$i] =~ m/\A [\?\+\*\{] \z/oxms) and
-            ($char[$i-1] =~ m/\A [\x81-\xFE] \\? [\x00-\xFF] \z/oxms)
-        ) {
-            $char[$i-1] = '(?:' . $char[$i-1] . ')';
+        # quote character before ? + * {
+        elsif (($i >= 1) and ($char[$i] =~ m/\A [\?\+\*\{] \z/oxms)) {
+            if ($char[$i-1] !~ m/\A [\x00-\xFF] \z/oxms) {
+                $char[$i-1] = '(?:' . $char[$i-1] . ')';
+            }
         }
     }
 
@@ -3702,12 +3599,12 @@ sub e_split {
         \\  [0-7]{2,3}       |
         \\x [0-9A-Fa-f]{1,2} |
         \\c [\x40-\x5F]      |
-        \\  (?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) |
+        \\  (?:$q_char)      |
         [\$\@] $qq_variable  |
         \[\:\^ [a-z]+ \:\]   |
         \[\:   [a-z]+ \:\]   |
         \[\^                 |
-            (?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])
+            (?:$q_char)
     )}oxmsg;
 
     # unescape character
@@ -3715,13 +3612,13 @@ sub e_split {
     my $right_e = 0;
     for (my $i=0; $i <= $#char; $i++) {
 
-        # escape second octet of double octet
-        if ($char[$i] =~ m/\A \\? ([\x81-\xFE]) ($metachar|\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
+        # escape last octet of multiple octet
+        if ($char[$i] =~ m/\A \\? ([\x80-\xFF].*) ($metachar|\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
             $char[$i] = $1 . '\\' . $2;
         }
 
-        # join separated double octet
-        elsif ($char[$i] =~ m/\A \\ (?:2[0-7][1-7]|3[0-7][0-6]) \z/oxms) {
+        # join separated multiple octet
+        elsif ($char[$i] =~ m/\A \\ (?:20[1-6]|2[1-7][0-7]|3[0-6][0-7]|37[0-6]) \z/oxms) {
             if ($i < $#char) {
                 $char[$i] .= $char[$i+1];
                 splice @char, $i+1, 1;
@@ -3745,7 +3642,7 @@ sub e_split {
                     my $right = $i;
 
                     # [...]
-                    splice @char, $left, $right-$left+1, charlist_qr(@char[$left+1..$right-1], $modifier);
+                    splice @char, $left, $right-$left+1, Ebig5plus::charlist_qr(@char[$left+1..$right-1], $modifier);
 
                     $i = $left;
                     last;
@@ -3764,7 +3661,7 @@ sub e_split {
                     my $right = $i;
 
                     # [^...]
-                    splice @char, $left, $right-$left+1, charlist_not_qr(@char[$left+1..$right-1], $modifier);
+                    splice @char, $left, $right-$left+1, Ebig5plus::charlist_not_qr(@char[$left+1..$right-1], $modifier);
 
                     $i = $left;
                     last;
@@ -3773,17 +3670,7 @@ sub e_split {
         }
 
         # rewrite character class or escape character
-        elsif (my $char = {
-            '.'  => ($modifier =~ /s/) ?
-                    '(?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])' :
-                    '(?:[\x81-\xFE][\x00-\xFF]|[^\n])',
-            '\D' => '(?:[\x81-\xFE][\x00-\xFF]|[^\d])',
-            '\H' => '(?:[\x81-\xFE][\x00-\xFF]|[^\h])',
-            '\S' => '(?:[\x81-\xFE][\x00-\xFF]|[^\s])',
-            '\V' => '(?:[\x81-\xFE][\x00-\xFF]|[^\v])',
-            '\W' => '(?:[\x81-\xFE][\x00-\xFF]|[^\w])',
-            }->{$char[$i]}
-        ) {
+        elsif (my $char = classic_character_class($char[$i],$modifier)) {
             $char[$i] = $char;
         }
 
@@ -3833,24 +3720,11 @@ sub e_split {
             }
         }
 
-        # quote double octet character before ? + * {
-        elsif (
-            ($i >= 1) and
-            ($char[$i] =~ m/\A [\?\+\*\{] \z/oxms) and
-            ($char[$i-1] =~ m/\A 
-                (?:
-                        [\x81-\xFE] | 
-                    \\  (?:2[0-7][1-7]|3[0-7][0-6]) |
-                    \\x (?:8[1-9A-Fa-f]|[9A-Ea-e][0-9A-Fa-f]|[Ff][0-9A-Ea-e])
-                )
-                (?:
-                        [\x00-\xFF] |
-                    \\  [0-7]{2,3} |
-                    \\x [0-9-A-Fa-f]{1,2}
-                )
-             \z/oxms)
-        ) {
-            $char[$i-1] = '(?:' . $char[$i-1] . ')';
+        # quote character before ? + * {
+        elsif (($i >= 1) and ($char[$i] =~ m/\A [\?\+\*\{] \z/oxms)) {
+            if ($char[$i-1] !~ m/\A (?:[\x00-\xFF]|\\[0-7]{2,3}|\\x[0-9-A-Fa-f]{1,2}) \z/oxms) {
+                $char[$i-1] = '(?:' . $char[$i-1] . ')';
+            }
         }
     }
 
@@ -3880,14 +3754,14 @@ sub e_split_q {
         \[\:\^ [a-z]+ \:\] |
         \[\:   [a-z]+ \:\] |
         \[\^               |
-        \\?    (?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])
+        \\?    (?:$q_char)
     )}oxmsg;
 
     # unescape character
     for (my $i=0; $i <= $#char; $i++) {
 
-        # escape second octet of double octet
-        if ($char[$i] =~ m/\A ([\x81-\xFE]) ([\\|\[\{\^]|\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
+        # escape last octet of multiple octet
+        if ($char[$i] =~ m/\A ([\x80-\xFF].*) ([\\|\[\{\^]|\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
             $char[$i] = $1 . '\\' . $2;
         }
 
@@ -3902,7 +3776,7 @@ sub e_split_q {
                     my $right = $i;
 
                     # [...]
-                    splice @char, $left, $right-$left+1, charlist_qr(@char[$left+1..$right-1], $modifier);
+                    splice @char, $left, $right-$left+1, Ebig5plus::charlist_qr(@char[$left+1..$right-1], $modifier);
 
                     $i = $left;
                     last;
@@ -3921,7 +3795,7 @@ sub e_split_q {
                     my $right = $i;
 
                     # [^...]
-                    splice @char, $left, $right-$left+1, charlist_not_qr(@char[$left+1..$right-1], $modifier);
+                    splice @char, $left, $right-$left+1, Ebig5plus::charlist_not_qr(@char[$left+1..$right-1], $modifier);
 
                     $i = $left;
                     last;
@@ -3930,17 +3804,7 @@ sub e_split_q {
         }
 
         # rewrite character class or escape character
-        elsif (my $char = {
-            '.'  => ($modifier =~ /s/) ?
-                    '(?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])' :
-                    '(?:[\x81-\xFE][\x00-\xFF]|[^\n])',
-            '\D' => '(?:[\x81-\xFE][\x00-\xFF]|[^\d])',
-            '\H' => '(?:[\x81-\xFE][\x00-\xFF]|[^\h])',
-            '\S' => '(?:[\x81-\xFE][\x00-\xFF]|[^\s])',
-            '\V' => '(?:[\x81-\xFE][\x00-\xFF]|[^\v])',
-            '\W' => '(?:[\x81-\xFE][\x00-\xFF]|[^\w])',
-            }->{$char[$i]}
-        ) {
+        elsif (my $char = classic_character_class($char[$i],$modifier)) {
             $char[$i] = $char;
         }
 
@@ -3952,13 +3816,11 @@ sub e_split_q {
             }
         }
 
-        # quote double octet character before ? + * {
-        elsif (
-            ($i >= 1) and
-            ($char[$i] =~ m/\A [\?\+\*\{] \z/oxms) and
-            ($char[$i-1] =~ m/\A [\x81-\xFE] \\? [\x00-\xFF] \z/oxms)
-        ) {
-            $char[$i-1] = '(?:' . $char[$i-1] . ')';
+        # quote character before ? + * {
+        elsif (($i >= 1) and ($char[$i] =~ m/\A [\?\+\*\{] \z/oxms)) {
+            if ($char[$i-1] !~ m/\A [\x00-\xFF] \z/oxms) {
+                $char[$i-1] = '(?:' . $char[$i-1] . ')';
+            }
         }
     }
 
@@ -4066,497 +3928,6 @@ sub e_use {
     return qq<use $module $list;>;
 }
 
-#
-# Big5Plus open character list for qr
-#
-sub charlist_qr {
-    my $modifier = pop @_;
-    my @char = @_;
-
-    # unescape character
-    for (my $i=0; $i <= $#char; $i++) {
-
-        # escape - to ...
-        if ($char[$i] eq '-') {
-            if ((0 < $i) and ($i < $#char)) {
-                $char[$i] = '...';
-            }
-        }
-        elsif ($char[$i] =~ m/\A \\ ([0-7]{2,3}) \z/oxms) {
-            $char[$i] = chr oct $1;
-        }
-        elsif ($char[$i] =~ m/\A \\x ([0-9A-Fa-f]{1,2}) \z/oxms) {
-            $char[$i] = chr hex $1;
-        }
-        elsif ($char[$i] =~ m/\A \\c ([\x40-\x5F]) \z/oxms) {
-            $char[$i] = chr(ord($1) & 0x1F);
-        }
-        elsif ($char[$i] =~ m/\A (\\ [0nrtfbaedDhHsSvVwW]) \z/oxms) {
-            $char[$i] = {
-                '\0' => "\0",
-                '\n' => "\n",
-                '\r' => "\r",
-                '\t' => "\t",
-                '\f' => "\f",
-                '\b' => "\x08", # \b means backspace in character class
-                '\a' => "\a",
-                '\e' => "\e",
-                '\d' => '\d',
-                '\h' => '\h',
-                '\s' => '\s',
-                '\v' => '\v',
-                '\w' => '\w',
-                '\D' => '(?:[\x81-\xFE][\x00-\xFF]|[^\d])',
-                '\H' => '(?:[\x81-\xFE][\x00-\xFF]|[^\h])',
-                '\S' => '(?:[\x81-\xFE][\x00-\xFF]|[^\s])',
-                '\V' => '(?:[\x81-\xFE][\x00-\xFF]|[^\v])',
-                '\W' => '(?:[\x81-\xFE][\x00-\xFF]|[^\w])',
-            }->{$1};
-        }
-        elsif ($char[$i] =~ m/\A \\ ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) \z/oxms) {
-            $char[$i] = $1;
-        }
-    }
-
-    # open character list
-    my @singleoctet = ();
-    my @charlist    = ();
-    if ((scalar(@char) == 1) or ((scalar(@char) >= 2) and ($char[1] ne '...'))) {
-        if ($char[0] =~ m/\A [\x00-\xFF] \z/oxms) {
-            push @singleoctet, $char[0];
-        }
-        else {
-            push @charlist, $char[0];
-        }
-    }
-    for (my $i=1; $i <= $#char-1; ) {
-
-        # escaped -
-        if ($char[$i] eq '...') {
-
-            # range of single octet code
-            if (
-                ($char[$i-1] =~ m/\A [\x00-\xFF] \z/oxms) and
-                ($char[$i+1] =~ m/\A [\x00-\xFF] \z/oxms)
-            ) {
-                my $begin = unpack 'C', $char[$i-1];
-                my $end   = unpack 'C', $char[$i+1];
-                if ($begin > $end) {
-                    croak "$__FILE__: invalid [] range \"\\x" . unpack('H*',$char[$i-1]) . '-\\x' . unpack('H*',$char[$i+1]) . '" in regexp';
-                }
-                else {
-                    if ($modifier =~ m/i/oxms) {
-                        my %range = ();
-                        for my $c ($begin .. $end) {
-                            $range{ord CORE::uc chr $c} = 1;
-                            $range{ord CORE::lc chr $c} = 1;
-                        }
-
-                        my @lt = grep {$_ < $begin} sort {$a <=> $b} keys %range;
-                        if (scalar(@lt) == 1) {
-                            push @singleoctet, sprintf(q{\\x%02X},         $lt[0]);
-                        }
-                        elsif (scalar(@lt) >= 2) {
-                            push @singleoctet, sprintf(q{\\x%02X-\\x%02X}, $lt[0], $lt[-1]);
-                        }
-
-                        push @singleoctet, sprintf(q{\\x%02X-\\x%02X},     $begin, $end);
-
-                        my @gt = grep {$_ > $end  } sort {$a <=> $b} keys %range;
-                        if (scalar(@gt) == 1) {
-                            push @singleoctet, sprintf(q{\\x%02X},         $gt[0]);
-                        }
-                        elsif (scalar(@gt) >= 2) {
-                            push @singleoctet, sprintf(q{\\x%02X-\\x%02X}, $gt[0], $gt[-1]);
-                        }
-                    }
-                    else {
-                        push @singleoctet, sprintf(q{\\x%02X-\\x%02X},     $begin, $end);
-                    }
-                }
-            }
-
-            # range of double octet code
-            elsif (
-                ($char[$i-1] =~ m/\A [\x81-\xFE][\x00-\xFF] \z/oxms) and
-                ($char[$i+1] =~ m/\A [\x81-\xFE][\x00-\xFF] \z/oxms)
-            ) {
-                my($begin1,$begin2) = unpack 'CC', $char[$i-1];
-                my($end1,  $end2)   = unpack 'CC', $char[$i+1];
-                my $begin = $begin1 * 0x100 + $begin2;
-                my $end   = $end1   * 0x100 + $end2;
-                if ($begin > $end) {
-                    croak "$__FILE__: invalid [] range \"\\x" . unpack('H*',$char[$i-1]) . '-\\x' . unpack('H*',$char[$i+1]) . '" in regexp';
-                }
-                elsif ($begin1 == $end1) {
-                    push @charlist, sprintf(q{\\x%02X[\\x%02X-\\x%02X]}, $begin1, $begin2, $end2);
-                }
-                elsif (($begin1 + 1) == $end1) {
-                    push @charlist, sprintf(q{\\x%02X[\\x%02X-\\xFF]},   $begin1, $begin2);
-                    push @charlist, sprintf(q{\\x%02X[\\x00-\\x%02X]},   $end1,   $end2);
-                }
-                else {
-                    my @middle = ();
-                    for my $c ($begin1+1 .. $end1-1) {
-                        my $char = chr($c);
-                        if ($char =~ /\A [\x81-\xFE] \z/oxms) {
-                            push @middle, $c;
-                        }
-                    }
-                    if (scalar(@middle) == 0) {
-                        push @charlist, sprintf(q{\\x%02X[\\x%02X-\\xFF]},         $begin1,    $begin2);
-                        push @charlist, sprintf(q{\\x%02X[\\x00-\\x%02X]},         $end1,      $end2);
-                    }
-                    elsif (scalar(@middle) == 1) {
-                        push @charlist, sprintf(q{\\x%02X[\\x%02X-\\xFF]},         $begin1,    $begin2);
-                        push @charlist, sprintf(q{\\x%02X[\\x00-\\xFF]},           $middle[0]);
-                        push @charlist, sprintf(q{\\x%02X[\\x00-\\x%02X]},         $end1,      $end2);
-                    }
-                    else {
-                        push @charlist, sprintf(q{\\x%02X[\\x%02X-\\xFF]},         $begin1,    $begin2);
-                        push @charlist, sprintf(q{[\\x%02X-\\x%02X][\\x00-\\xFF]}, $middle[0], $middle[-1]);
-                        push @charlist, sprintf(q{\\x%02X[\\x00-\\x%02X]},         $end1,      $end2);
-                    }
-                }
-            }
-
-            # range error
-            else {
-                croak "$__FILE__: invalid [] range \"\\x" . unpack('H*',$char[$i-1]) . '-\\x' . unpack('H*',$char[$i+1]) . '" in regexp';
-            }
-
-            $i += 2;
-        }
-
-        # /i modifier
-        elsif (($char[$i] =~ m/\A ([A-Za-z]) \z/oxms) and (($i+1 > $#char) or ($char[$i+1] ne '...'))) {
-            my $c = $1;
-            if ($modifier =~ m/i/oxms) {
-                push @singleoctet, CORE::uc $c, CORE::lc $c;
-            }
-            else {
-                push @singleoctet, $c;
-            }
-            $i += 1;
-        }
-
-        # single character
-        elsif ($char[$i] =~ m/\A (?: [\x00-\xFF] | \\d | \\h | \\s | \\v | \\w )  \z/oxms) {
-            push @singleoctet, $char[$i];
-            $i += 1;
-        }
-        else {
-            push @charlist, $char[$i];
-            $i += 1;
-        }
-    }
-    if ((scalar(@char) >= 2) and ($char[-2] ne '...')) {
-        if ($char[-1] =~ m/\A [\x00-\xFF] \z/oxms) {
-            push @singleoctet, $char[-1];
-        }
-        else {
-            push @charlist, $char[-1];
-        }
-    }
-
-    # quote metachar
-    for (@singleoctet) {
-        if (m/\A \n \z/oxms) {
-            $_ = '\n';
-        }
-        elsif (m/\A \r \z/oxms) {
-            $_ = '\r';
-        }
-        elsif (m/\A ([\x00-\x1F\x7F-\xFF]) \z/oxms) {
-            $_ = sprintf(q{\\x%02X}, ord $1);
-        }
-        elsif (m/\A [\x00-\xFF] \z/oxms) {
-            $_ = quotemeta $_;
-        }
-    }
-    for (@charlist) {
-        if (m/\A ([\x81-\xFE]) ([\x00-\xFF]) \z/oxms) {
-            $_ = $1 . quotemeta $2;
-        }
-    }
-
-    # return character list
-    if (scalar(@singleoctet) == 0) {
-    }
-    elsif (scalar(@singleoctet) >= 2) {
-        push @charlist, '[' . join('',@singleoctet) . ']';
-    }
-    elsif ($singleoctet[0] =~ m/ . - . /oxms) {
-        push @charlist, '[' . $singleoctet[0] . ']';
-    }
-    else {
-        push @charlist, $singleoctet[0];
-    }
-    if (scalar(@charlist) >= 2) {
-        return '(?:' . join('|', @charlist) . ')';
-    }
-    else {
-        return $charlist[0];
-    }
-}
-
-#
-# Big5Plus open character list for not qr
-#
-sub charlist_not_qr {
-    my $modifier = pop @_;
-    my @char = @_;
-
-    # unescape character
-    for (my $i=0; $i <= $#char; $i++) {
-
-        # escape - to ...
-        if ($char[$i] eq '-') {
-            if ((0 < $i) and ($i < $#char)) {
-                $char[$i] = '...';
-            }
-        }
-        elsif ($char[$i] =~ m/\A \\ ([0-7]{2,3}) \z/oxms) {
-            $char[$i] = chr oct $1;
-        }
-        elsif ($char[$i] =~ m/\A \\x ([0-9A-Fa-f]{1,2}) \z/oxms) {
-            $char[$i] = chr hex $1;
-        }
-        elsif ($char[$i] =~ m/\A \\c ([\x40-\x5F]) \z/oxms) {
-            $char[$i] = chr(ord($1) & 0x1F);
-        }
-        elsif ($char[$i] =~ m/\A (\\ [0nrtfbaedDhHsSvVwW]) \z/oxms) {
-            $char[$i] = {
-                '\0' => "\0",
-                '\n' => "\n",
-                '\r' => "\r",
-                '\t' => "\t",
-                '\f' => "\f",
-                '\b' => "\x08", # \b means backspace in character class
-                '\a' => "\a",
-                '\e' => "\e",
-                '\d' => '\d',
-                '\h' => '\h',
-                '\s' => '\s',
-                '\v' => '\v',
-                '\w' => '\w',
-                '\D' => '(?:[\x81-\xFE][\x00-\xFF]|[^\d])',
-                '\H' => '(?:[\x81-\xFE][\x00-\xFF]|[^\h])',
-                '\S' => '(?:[\x81-\xFE][\x00-\xFF]|[^\s])',
-                '\V' => '(?:[\x81-\xFE][\x00-\xFF]|[^\v])',
-                '\W' => '(?:[\x81-\xFE][\x00-\xFF]|[^\w])',
-            }->{$1};
-        }
-        elsif ($char[$i] =~ m/\A \\ ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) \z/oxms) {
-            $char[$i] = $1;
-        }
-    }
-
-    # open character list
-    my @singleoctet = ();
-    my @charlist    = ();
-    if ((scalar(@char) == 1) or ((scalar(@char) >= 2) and ($char[1] ne '...'))) {
-        if ($char[0] =~ m/\A [\x00-\xFF] \z/oxms) {
-            push @singleoctet, $char[0];
-        }
-        else {
-            push @charlist, $char[0];
-        }
-    }
-    for (my $i=1; $i <= $#char-1; ) {
-
-        # escaped -
-        if ($char[$i] eq '...') {
-
-            # range of single octet code
-            if (
-                ($char[$i-1] =~ m/\A [\x00-\xFF] \z/oxms) and
-                ($char[$i+1] =~ m/\A [\x00-\xFF] \z/oxms)
-            ) {
-                my $begin = unpack 'C', $char[$i-1];
-                my $end   = unpack 'C', $char[$i+1];
-                if ($begin > $end) {
-                    croak "$__FILE__: invalid [] range \"\\x" . unpack('H*',$char[$i-1]) . '-\\x' . unpack('H*',$char[$i+1]) . '" in regexp';
-                }
-                else {
-                    if ($modifier =~ m/i/oxms) {
-                        my %range = ();
-                        for my $c ($begin .. $end) {
-                            $range{ord CORE::uc chr $c} = 1;
-                            $range{ord CORE::lc chr $c} = 1;
-                        }
-
-                        my @lt = grep {$_ < $begin} sort {$a <=> $b} keys %range;
-                        if (scalar(@lt) == 1) {
-                            push @singleoctet, sprintf(q{\\x%02X},         $lt[0]);
-                        }
-                        elsif (scalar(@lt) >= 2) {
-                            push @singleoctet, sprintf(q{\\x%02X-\\x%02X}, $lt[0], $lt[-1]);
-                        }
-
-                        push @singleoctet, sprintf(q{\\x%02X-\\x%02X},     $begin, $end);
-
-                        my @gt = grep {$_ > $end  } sort {$a <=> $b} keys %range;
-                        if (scalar(@gt) == 1) {
-                            push @singleoctet, sprintf(q{\\x%02X},         $gt[0]);
-                        }
-                        elsif (scalar(@gt) >= 2) {
-                            push @singleoctet, sprintf(q{\\x%02X-\\x%02X}, $gt[0], $gt[-1]);
-                        }
-                    }
-                    else {
-                        push @singleoctet, sprintf(q{\\x%02X-\\x%02X},     $begin, $end);
-                    }
-                }
-            }
-
-            # range of double octet code
-            elsif (
-                ($char[$i-1] =~ m/\A [\x81-\xFE][\x00-\xFF] \z/oxms) and
-                ($char[$i+1] =~ m/\A [\x81-\xFE][\x00-\xFF] \z/oxms)
-            ) {
-                my($begin1,$begin2) = unpack 'CC', $char[$i-1];
-                my($end1,  $end2)   = unpack 'CC', $char[$i+1];
-                my $begin = $begin1 * 0x100 + $begin2;
-                my $end   = $end1   * 0x100 + $end2;
-                if ($begin > $end) {
-                    croak "$__FILE__: invalid [] range \"\\x" . unpack('H*',$char[$i-1]) . '-\\x' . unpack('H*',$char[$i+1]) . '" in regexp';
-                }
-                elsif ($begin1 == $end1) {
-                    push @charlist, sprintf(q{\\x%02X[\\x%02X-\\x%02X]}, $begin1, $begin2, $end2);
-                }
-                elsif (($begin1 + 1) == $end1) {
-                    push @charlist, sprintf(q{\\x%02X[\\x%02X-\\xFF]},   $begin1, $begin2);
-                    push @charlist, sprintf(q{\\x%02X[\\x00-\\x%02X]},   $end1,   $end2);
-                }
-                else {
-                    my @middle = ();
-                    for my $c ($begin1+1 .. $end1-1) {
-                        my $char = chr($c);
-                        if ($char =~ /\A [\x81-\xFE] \z/oxms) {
-                            push @middle, $c;
-                        }
-                    }
-                    if (scalar(@middle) == 0) {
-                        push @charlist, sprintf(q{\\x%02X[\\x%02X-\\xFF]},         $begin1,    $begin2);
-                        push @charlist, sprintf(q{\\x%02X[\\x00-\\x%02X]},         $end1,      $end2);
-                    }
-                    elsif (scalar(@middle) == 1) {
-                        push @charlist, sprintf(q{\\x%02X[\\x%02X-\\xFF]},         $begin1,    $begin2);
-                        push @charlist, sprintf(q{\\x%02X[\\x00-\\xFF]},           $middle[0]);
-                        push @charlist, sprintf(q{\\x%02X[\\x00-\\x%02X]},         $end1,      $end2);
-                    }
-                    else {
-                        push @charlist, sprintf(q{\\x%02X[\\x%02X-\\xFF]},         $begin1,    $begin2);
-                        push @charlist, sprintf(q{[\\x%02X-\\x%02X][\\x00-\\xFF]}, $middle[0], $middle[-1]);
-                        push @charlist, sprintf(q{\\x%02X[\\x00-\\x%02X]},         $end1,      $end2);
-                    }
-                }
-            }
-
-            # range error
-            else {
-                croak "$__FILE__: invalid [] range \"\\x" . unpack('H*',$char[$i-1]) . '-\\x' . unpack('H*',$char[$i+1]) . '" in regexp';
-            }
-
-            $i += 2;
-        }
-
-        # /i modifier
-        elsif (($char[$i] =~ m/\A ([A-Za-z]) \z/oxms) and (($i+1 > $#char) or ($char[$i+1] ne '...'))) {
-            my $c = $1;
-            if ($modifier =~ m/i/oxms) {
-                push @singleoctet, CORE::uc $c, CORE::lc $c;
-            }
-            else {
-                push @singleoctet, $c;
-            }
-            $i += 1;
-        }
-
-        # single character
-        elsif ($char[$i] =~ m/\A (?: [\x00-\xFF] | \\d | \\h | \\s | \\v | \\w )  \z/oxms) {
-            push @singleoctet, $char[$i];
-            $i += 1;
-        }
-        else {
-            push @charlist, $char[$i];
-            $i += 1;
-        }
-    }
-    if ((scalar(@char) >= 2) and ($char[-2] ne '...')) {
-        if ($char[-1] =~ m/\A [\x00-\xFF] \z/oxms) {
-            push @singleoctet, $char[-1];
-        }
-        else {
-            push @charlist, $char[-1];
-        }
-    }
-
-    # quote metachar
-    for (@singleoctet) {
-        if (m/\A \n \z/oxms) {
-            $_ = '\n';
-        }
-        elsif (m/\A \r \z/oxms) {
-            $_ = '\r';
-        }
-        elsif (m/\A ([\x00-\x1F\x7F-\xFF]) \z/oxms) {
-            $_ = sprintf(q{\\x%02X}, ord $1);
-        }
-        elsif (m/\A [\x00-\xFF] \z/oxms) {
-            $_ = quotemeta $_;
-        }
-    }
-    for (@charlist) {
-        if (m/\A ([\x81-\xFE]) ([\x00-\xFF]) \z/oxms) {
-            $_ = $1 . quotemeta $2;
-        }
-    }
-
-    # return character list
-    if (scalar(@charlist) >= 1) {
-        if (scalar(@singleoctet) >= 1) {
-
-            # any character other than double octet and single octet character class
-            return '(?!' . join('|', @charlist) . ')(?:[\x81-\xFE][\x00-\xFF]|[^'. join('', @singleoctet) . '])';
-        }
-        else {
-
-            # any character other than double octet character class
-            return '(?!' . join('|', @charlist) . ')(?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])';
-        }
-    }
-    else {
-        if (scalar(@singleoctet) >= 1) {
-
-            # any character other than single octet character class
-            return                                 '(?:[\x81-\xFE][\x00-\xFF]|[^'. join('', @singleoctet) . '])';
-        }
-        else {
-
-            # any character
-            return                                 '(?:[\x81-\xFE][\x00-\xFF]|[\x00-\xFF])';
-        }
-    }
-}
-
-#
-# Big5Plus chr(0x5C) ended path on MSWin32
-#
-sub MSWin32_5Cended_path {
-
-    if ((@_ >= 1) and ($_[0] ne '')) {
-        if ($^O =~ /\A (?: MSWin32 | NetWare | symbian | dos ) \z/oxms) {
-            my @char = $_[0] =~ /\G ([\x81-\xFE][\x00-\xFF]|[\x00-\xFF]) /oxmsg;
-            if ($char[-1] =~ m/\A [\x81-\xFE][\x5C] \z/oxms) {
-                return 1;
-            }
-        }
-    }
-    return;
-}
-
 1;
 
 __END__
@@ -4661,13 +4032,13 @@ A part of function in the script is written and changes by this software.
 
 =over 2
 
-=item * handle double octet string in single quote
+=item * handle multiple octet string in single quote
 
-=item * handle double octet string in double quote
+=item * handle multiple octet string in multiple quote
 
-=item * handle double octet regexp in single quote
+=item * handle multiple octet regexp in single quote
 
-=item * handle double octet regexp in double quote
+=item * handle multiple octet regexp in multiple quote
 
 =item * chop --> Ebig5plus::chop
 
@@ -4717,16 +4088,16 @@ The following functions are enhanced more than JPerl.
 
 =item * chr --> Ebig5plus::chr or Ebig5plus::chr_
 
-double octet code can also be handled.
+multiple octet code can also be handled.
 
 =item * ord --> Ebig5plus::ord or Ebig5plus::ord_
 
-double octet code can also be handled when "use Big5Plus qw(ord);".
+multiple octet code can also be handled when "use Big5Plus qw(ord);".
 It means not compatible with JPerl.
 
 =item * reverse --> Ebig5plus::reverse
 
-double octet code can also be handled in scalar context when "use Big5Plus qw(reverse);".
+multiple octet code can also be handled in scalar context when "use Big5Plus qw(reverse);".
 It means not compatible with JPerl.
 
 =item * -X --> Ebig5plus::X or Ebig5plus::X_
@@ -4768,7 +4139,7 @@ Please patches and report problems to author are welcome.
 
 =item * format
 
-Function "format" can't handle double octet code same as original Perl.
+Function "format" can't handle multiple octet code same as original Perl.
 
 =item * chdir
 
@@ -4783,8 +4154,8 @@ http://bugs.activestate.com/show_bug.cgi?id=81839
 =item * here document
 
 When two or more delimiters of here documents are in one line, if any one is
-a double quote type(<<"END", <<END or <<`END`), then all here documents will
-escape for double quote type.
+a multiple quote type(<<"END", <<END or <<`END`), then all here documents will
+escape for multiple quote type.
 
     ex.1
         print <<'END';
@@ -4803,21 +4174,21 @@ escape for double quote type.
     ex.3
         print <<"END";
         ============================================================
-        Escaped for DOUBLE quote document.   --- OK
+        Escaped for MULTIPLE quote document.   --- OK
         ============================================================
         END
 
     ex.4
         print <<END;
         ============================================================
-        Escaped for DOUBLE quote document.   --- OK
+        Escaped for MULTIPLE quote document.   --- OK
         ============================================================
         END
 
     ex.5
         print <<`END`;
         ============================================================
-        Escaped for DOUBLE quote command.   --- OK
+        Escaped for MULTIPLE quote command.   --- OK
         ============================================================
         END
 
@@ -4835,28 +4206,28 @@ escape for double quote type.
     ex.7
         print <<"END1", <<"END2";
         ============================================================
-        Escaped for DOUBLE quote document.   --- OK
+        Escaped for MULTIPLE quote document.   --- OK
         ============================================================
         END1
         ============================================================
-        Escaped for DOUBLE quote document.   --- OK
+        Escaped for MULTIPLE quote document.   --- OK
         ============================================================
         END2
 
     ex.8
         print <<'END1', <<"END2", <<'END3';
         ============================================================
-        Escaped for DOUBLE quote document 'END1', "END2", 'END3'.
+        Escaped for MULTIPLE quote document 'END1', "END2", 'END3'.
         'END1' and 'END3' see string rewritten for "END2".
         ============================================================
         END1
         ============================================================
-        Escaped for DOUBLE quote document "END2", 'END3'.
+        Escaped for MULTIPLE quote document "END2", 'END3'.
         'END3' see string rewritten for "END2".
         ============================================================
         END2
         ============================================================
-        Escaped for DOUBLE quote document "END3".
+        Escaped for MULTIPLE quote document "END3".
         'END3' see string rewritten for "END2".
         ============================================================
         END3
@@ -4864,17 +4235,17 @@ escape for double quote type.
     ex.9
         print <<"END1", <<'END2', <<"END3";
         ============================================================
-        Escaped for DOUBLE quote document "END1", 'END2', "END3".
+        Escaped for MULTIPLE quote document "END1", 'END2', "END3".
         'END2' see string rewritten for "END1" and "END3".
         ============================================================
         END1
         ============================================================
-        Escaped for DOUBLE quote document 'END2', "END3".
+        Escaped for MULTIPLE quote document 'END2', "END3".
         'END2' see string rewritten for "END3".
         ============================================================
         END2
         ============================================================
-        Escaped for DOUBLE quote document.   --- OK
+        Escaped for MULTIPLE quote document.   --- OK
         ============================================================
         END3
 
@@ -4896,360 +4267,6 @@ modify it under the same terms as Perl itself. See L<perlartistic>.
 This software is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-
-=head1 Big5Plus Encoding
-
-Big5Plus encoding is the most common encoding method used on Japanese
-computers, developed by Microsoft Corporation.
-
-Big5Plus is sometimes referred to as MS Kanji (Microsoft Kanji) or SJIS
-(an abbreviation for Big5Plus).
-
-Historically, Big5Plus was so named because of the way the code positions
-for two-octet characters shifted around the code positions for half-width
-katakana -- Japanese computer users originally used only half-width katakana,
-so Big5Plus was developed in order to maintain backword compatibility.
-
-A two-octet-per-character mode in Big5Plus is initiated with a octet having
-a hexadecimal value ranging between 0x81-0x9F or 0xE0-0xEF. This octet is
-subsequently treated as the first octet of an expected two-octet sequence.
-The following (second) octet must have a hexadecimal value ranging between
-0x40-0x7E or 0x80-0xFC. Note that the first octet's range falls entirely in
-the extended ASCII character set -- in the eight-bit character set with the
-high-order bit on. Note that Big5Plus also encodes half-width katakana and
-ASCII/JIS-Roman.
-
-Some definitions (in particular, corporate definitions) of Big5Plus also
-contain encoding blocks for user-defined characters or even an encoded position
-for a half-width katakana space character. Such encoding blocks and encoded
-positions are not useful if true information interchange is desired, because
-they are encoded in such a way that they do not convert to encoded positions
-in other Japanese encoding methods (that is, JIS and EUC).
-
-=head1 Big5Plus IN WIKIPEDIA
-
-Shift JIS (2008.02.15 15:02:00 JST). In Wikipedia: The Free Encyclopedia.
-Retrieved from
-L<http://en.wikipedia.org/wiki/Shift_JIS>
-
-Shift JIS (also SJIS, MIME name Shift_JIS) is a character encoding
-for the Japanese language originally developed by a Japanese company
-called ASCII Corporation in conjunction with Microsoft and standardized
-as JIS X 0208 Appendix 1. It is based on character sets defined within
-JIS standards JIS X 0201:1997 (for the single-byte characters) and
-JIS X 0208:1997 (for the double byte characters). The lead bytes for
-the double byte characters are "shifted" around the 64 halfwidth katakana
-characters in the single-byte range 0xA1 to 0xDF. The single-byte
-characters 0x00 to 0x7F match the ASCII encoding, except for a yen sign
-at 0x5C and an overline at 0x7E in place of the ASCII character set's
-backslash and tilde respectively. On the web, 0x5C is still used as the
-Perl Script escape character. The single-byte characters from 0xA1 to 0xDF
-map to the half-width katakana characters found in JIS X 0201. 
-
-Shift JIS requires an 8-bit medium for transmission. It is fully backwards
-compatible with the legacy JIS X 0201 single-byte encoding, meaning it
-supports half-width katakana and that any valid JIS X 0201 string is also
-a valid Shift JIS string. However Shift JIS only guarantees that the first
-byte will be in the upper ASCII range; the value of the second byte can be
-either high or low. This makes reliable Shift JIS detection difficult.
-On the other hand, the competing 8-bit format EUC-JP, which does not
-support single-byte halfwidth katakana, allows for a much cleaner and
-direct conversion to and from JIS X 0208 codepoints, as all upper-ASCII
-bytes are part of a double-byte character and all lower-ASCII bytes are
-part of a single-byte character.
-
-Many different versions of Shift JIS exist. There are two areas for
-expansion: Firstly, JIS X 0208 does not fill the whole 94x94 space encoded
-for it in Shift JIS, therefore there is room for more characters here ?
-these are really extensions to JIS X 0208 rather than to Shift JIS itself.
-The most popular extension here is to the Windows-31J (otherwise known as
-Code page 932) encoding popularized by Microsoft, although Microsoft
-itself does not recognize the Windows-31J name and instead calls that
-variation "shift_jis". Secondly, Shift JIS has more encoding space than is
-needed for JIS X 0201 and JIS X 0208, and this space can and is used for
-yet more characters. The space with lead bytes 0xF5 to 0xF9 is used by
-Japanese mobile phone operators for pictographs for use in E-mail, for
-example (KDDI goes further and defines hundreds more in the space with
-lead bytes 0xF3 and 0xF4).
-
-Beyond even this there have been numerous minor variations made on Shift
-JIS, with individual characters here and there altered. Most of these
-extensions and variants have no IANA registration, so there is much scope
-for confusion if the extensions are used. Microsoft Code Page 932 is
-registered separately from Shift JIS.
-IBM CCSID 943 has the same extensions as Code Page 932.
-As with most code pages and encodings it is recommended that Unicode be
-used instead.
-
-=head1 "Big5Plus" IN THIS SOFTWARE
-
- The "Big5Plus" in this software means widely codeset than general
-Big5Plus. This software use two algorithms to handle Big5Plus.
-
-=over 2
-
-=item * ALGORITHM #1
-
- When the character is taken out of the octet string, it is necessary to
-distinguish a single octet character and the double octet character.
-The distinction is done only by first octet.
-
-    Single octet code is:
-      0x00-0x80, 0xA0-0xDF and 0xFD-0xFF
-
-    Double octet code is:
-      First octet   0x81-0x9F, 0xE0-0xEF and 0xF0-0xFC
-      Second octet  0x00-0xFF (All octet)
-
-    MALFORMED single octet code is:
-      0x81-0x9F and 0xE0-0xFC
-      * Final octet of string like first octet of double octet code
-
- So this "Big5Plus" can handle any code of Big5Plus based code without
-Hewlett-Packard HP-15 and Informix Ascii 'INFORMIX V6 ALS' is triple octet
-code. (I'm sorry, these users.)
-
-See also code table:
-
-         Single octet code
-
-   0 1 2 3 4 5 6 7 8 9 A B C D E F 
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 0|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*| 0x00-0x80
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 1|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 2|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 3|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 4|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 5|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 6|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 7|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 8|*| | | | | | | | | | | | | | | |
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 9| | | | | | | | | | | | | | | | |
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- A|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*| 0xA0-0xDF
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- B|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- C|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- D|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- E| | | | | | | | | | | | | | | | |
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- F| | | | | | | | | | | | | |*|*|*| 0xFD-0xFF
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-
-                                 Double octet code
-            First octet                                     Second octet
-
-   0 1 2 3 4 5 6 7 8 9 A B C D E F                 0 1 2 3 4 5 6 7 8 9 A B C D E F 
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 0| | | | | | | | | | | | | | | | |              0|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*| 0x00-0xFF
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 1| | | | | | | | | | | | | | | | |              1|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 2| | | | | | | | | | | | | | | | |              2|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 3| | | | | | | | | | | | | | | | |              3|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 4| | | | | | | | | | | | | | | | |              4|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 5| | | | | | | | | | | | | | | | |              5|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 6| | | | | | | | | | | | | | | | |              6|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 7| | | | | | | | | | | | | | | | |              7|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 8| |*|*|*|*|*|*|*|*|*|*|*|*|*|*|*| 0x81-0x9F    8|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 9|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|              9|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- A| | | | | | | | | | | | | | | | |              A|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- B| | | | | | | | | | | | | | | | |              B|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- C| | | | | | | | | | | | | | | | |              C|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- D| | | | | | | | | | | | | | | | |              D|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- E|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*| 0xE0-0xFC    E|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- F|*|*|*|*|*|*|*|*|*|*|*|*|*| | | |              F|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-
-    *MALFORMED* Single octet code
-
-Final octet of string like first octet of double octet code
-
-Even if malformed, it is not ignored and not deleted automatically.
-For example, Ebig5plus::chop function returns this octet.
-
-   0 1 2 3 4 5 6 7 8 9 A B C D E F 
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 0| | | | | | | | | | | | | | | | |
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 1| | | | | | | | | | | | | | | | |
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 2| | | | | | | | | | | | | | | | |
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 3| | | | | | | | | | | | | | | | |
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 4| | | | | | | | | | | | | | | | |
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 5| | | | | | | | | | | | | | | | |
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 6| | | | | | | | | | | | | | | | |
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 7| | | | | | | | | | | | | | | | |
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 8| |M|M|M|M|M|M|M|M|M|M|M|M|M|M|M| 0x81-0x9F
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 9|M|M|M|M|M|M|M|M|M|M|M|M|M|M|M|M|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- A| | | | | | | | | | | | | | | | |
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- B| | | | | | | | | | | | | | | | |
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- C| | | | | | | | | | | | | | | | |
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- D| | | | | | | | | | | | | | | | |
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- E|M|M|M|M|M|M|M|M|M|M|M|M|M|M|M|M|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- F|M|M|M|M|M|M|M|M|M|M|M|M|M| | | |  0xE0-0xFC
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-
-The Big5Plus list via vendors:
-L<http://home.m05.itscom.net/numa/cde/sjis-euc/sjis.html>
-
- DEC PC                         0x00-0x7F, 0xA1-0xDF, (0x81-0x9F, 0xE0-0xFC)(0x40-0x7E, 0x80-0xFC)
- DEC WS                         0x00-0x7F, 0xA1-0xDF, (0x81-0x9F, 0xE0-0xFC)(0x40-0x7E, 0x80-0xFC)
- Fujitsu TrueType font (PC)     0x00-0x7F, 0xA1-0xDF, (0x81-0x9F, 0xE0-0xFC)(0x40-0x7E, 0x80-0xFC)
- Fujitsu FontCity font (PC)     0x00-0x7F, 0xA1-0xDF, (0x81-0x9F, 0xE0-0xFC)(0x40-0x7E, 0x80-0xFC)
- Hitachi PC                     0x00-0x7F, 0xA1-0xDF, (0x81-0x9F, 0xE0-0xFC)(0x40-0x7E, 0x80-0xFC)
- Hitachi WS                     0x00-0x7F, 0xA1-0xDF, (0x81-0x9F, 0xE0-0xFC)(0x40-0x7E, 0x80-0xFC)
- IBM                            0x00-0x7F, 0xA1-0xDF, (0x81-0x9F, 0xE0-0xFC)(0x40-0x7E, 0x80-0xFC)
- NEC Windows (PC)               0x00-0x7F, 0xA1-0xDF, (0x81-0x9F, 0xE0-0xFC)(0x40-0x7E, 0x80-0xFC)
- NEC DOS (PC)                   0x00-0x7F, 0xA1-0xDF, (0x81-0x9F, 0xE0-0xFC)(0x40-0x7E, 0x80-0xFC)
- SONY NEWS-OS                   0x00-0x7F, 0xA1-0xDF, (0x81-0x9F, 0xE0-0xFC)(0x40-0x7E, 0x80-0xFC)
- Sun Wabi                       0x00-0x7F, 0xA1-0xDF, (0x81-0x9F, 0xE0-0xFC)(0x40-0x7E, 0x80-0xFC)
- Unisys PC                      0x00-0x7F, 0xA1-0xDF, (0x81-0x9F, 0xE0-0xFC)(0x40-0x7E, 0x80-0xFC)
- HP Japan Japanese HP-15        0x00-0x7F, 0xA1-0xDF, (0x81-0x9F, 0xE0-0xFC)(0x40-0x7E, 0x80-0xFC)
- AT&T Japan                     0x00-0x7F, 0xA1-0xDF, (0x81-0x9F, 0xE0-0xFC)(0x40-0x7E, 0x80-0xFC)
- Mitsubishi Electric FONTRUNNER 0x00-0x7F, 0xA1-0xDF, (0x81-0x9F, 0xE0-0xFC)(0x40-0x7E, 0x80-0xFC)
- Concurrent Japan               0x00-0x7F, 0xA1-0xDF, (0x81-0x9F, 0xE0-0xFC)(0x40-0x7E, 0x80-0xFC)
- Informix ASCII INFORMIX V6 ALS 0x00-0x7F, 0xA1-0xDF, (0x81-0x9F, 0xE0-0xFC)(0x40-0x7E, 0x80-0xFC), (0xFD)(0xA1-0xFE)(0xA1-0xFE)
- Oracle Oracle7 (Release 7.1.3) 0x00-0x7F, 0xA1-0xDF, (0x81-0x9F, 0xE0-0xFC)(0x00-0xFF)
- Sybase SQL Server, Open Server 0x00-0x7F, 0xA1-0xDF, (0x81-0x9F, 0xE0-0xFC)(0x40-0x7E, 0x80-0xFC)
-
-Understanding Japanese Information Processing(ISBN 10: 1-56592-043-0 | ISBN 13: 9781565920439)
-
- Hewlett-Packard HP-15          0x00-0x7F, 0xA1-0xDF, (0x80-0xA0, 0xE0-0xFE)(0x21-0x7E, 0x80-0xFF)
-
-=item * ALGORITHM #2
-
-Against algorithm.1, when the range of the character by tr/// is specified, only the
-following character codes are effective.
-
-    Single octet code is:
-      0x00-0x80, 0xA0-0xDF and 0xFD-0xFF
-
-    Double octet code is:
-      First octet   0x81-0x9F, 0xE0-0xEF and 0xF0-0xFC
-      Second octet  0x40-0x7E and 0x80-0xFC
-
-For instance, [\x81\x00-\x82\xFF] in script means [\x81\x82][\x40-\x7E\x80-\xFE].
-
-See also code table:
-
-         Single octet code
-
-   0 1 2 3 4 5 6 7 8 9 A B C D E F 
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 0|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*| 0x00-0x80
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 1|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 2|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 3|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 4|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 5|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 6|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 7|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 8|*| | | | | | | | | | | | | | | |
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 9| | | | | | | | | | | | | | | | |
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- A|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*| 0xA0-0xDF
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- B|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- C|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- D|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- E| | | | | | | | | | | | | | | | |
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- F| | | | | | | | | | | | | |*|*|*| 0xFD-0xFF
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-
-                                 Double octet code
-            First octet                                     Second octet
-
-   0 1 2 3 4 5 6 7 8 9 A B C D E F                 0 1 2 3 4 5 6 7 8 9 A B C D E F 
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 0| | | | | | | | | | | | | | | | |              0| | | | | | | | | | | | | | | | |
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 1| | | | | | | | | | | | | | | | |              1| | | | | | | | | | | | | | | | |
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 2| | | | | | | | | | | | | | | | |              2| | | | | | | | | | | | | | | | |
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 3| | | | | | | | | | | | | | | | |              3| | | | | | | | | | | | | | | | |
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 4| | | | | | | | | | | | | | | | |              4|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*| 0x40-0x7E
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 5| | | | | | | | | | | | | | | | |              5|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 6| | | | | | | | | | | | | | | | |              6|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 7| | | | | | | | | | | | | | | | |              7|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*| |
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 8| |*|*|*|*|*|*|*|*|*|*|*|*|*|*|*| 0x81-0x9F    8|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*| 0x80-0xFC
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 9|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|              9|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- A| | | | | | | | | | | | | | | | |              A|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- B| | | | | | | | | | | | | | | | |              B|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- C| | | | | | | | | | | | | | | | |              C|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- D| | | | | | | | | | | | | | | | |              D|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- E|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*| 0xE0-0xFC    E|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|*|
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- F|*|*|*|*|*|*|*|*|*|*|*|*|*| | | |              F|*|*|*|*|*|*|*|*|*|*|*|*|*| | | |
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
 
 =head1 MY GOAL
 
@@ -5471,7 +4488,7 @@ This software was made referring to software and the document that the
 following hackers or persons had made. 
 I am thankful to all persons.
 
- Rick Yamashita, Big5Plus
+ Rick Yamashita, Shift_JIS
  L<ttp://furukawablog.spaces.live.com/Blog/cns!1pmWgsL289nm7Shn7cS0jHzA!2225.entry>
  (add 'h' at head)
 
@@ -5484,7 +4501,7 @@ I am thankful to all persons.
  Jeffrey E. F. Friedl, Mastering Regular Expressions
  L<http://www.oreilly.com/catalog/regex/index.html>
 
- SADAHIRO Tomoyuki, The right way of using Big5Plus
+ SADAHIRO Tomoyuki, The right way of using Shift_JIS
  L<http://homepage1.nifty.com/nomenclator/perl/shiftjis.htm>
 
  Yukihiro "Matz" Matsumoto
@@ -5499,7 +4516,7 @@ I am thankful to all persons.
  TSUKAMOTO Makio, Perl memo/file path of Windows
  L<http://digit.que.ne.jp/work/wiki.cgi?Perl%E3%83%A1%E3%83%A2%2FWindows%E3%81%A7%E3%81%AE%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%83%91%E3%82%B9>
 
- chaichanPaPa, Matching Big5Plus file name
+ chaichanPaPa, Matching Shift_JIS file name
  L<http://d.hatena.ne.jp/chaichanPaPa/20080802/1217660826>
 
  SUZUKI Norio, Jperl
