@@ -9,9 +9,9 @@ package Ebig5plus;
 
 use strict;
 use 5.00503;
-use vars qw($VERSION $_warning);
+use vars qw($VERSION $_warning $last_s_matched);
 
-$VERSION = sprintf '%d.%02d', q$Revision: 0.40 $ =~ m/(\d+)/xmsg;
+$VERSION = sprintf '%d.%02d', q$Revision: 0.41 $ =~ m/(\d+)/xmsg;
 
 use Fcntl;
 use Symbol;
@@ -142,21 +142,18 @@ else {
 sub import() {}
 sub unimport() {}
 sub Ebig5plus::split(;$$$);
-sub Ebig5plus::tr($$$;$);
+sub Ebig5plus::tr($$$$;$);
 sub Ebig5plus::chop(@);
 sub Ebig5plus::index($$;$);
 sub Ebig5plus::rindex($$;$);
-sub Ebig5plus::lc($);
+sub Ebig5plus::lc(@);
 sub Ebig5plus::lc_();
-sub Ebig5plus::uc($);
+sub Ebig5plus::uc(@);
 sub Ebig5plus::uc_();
-sub Ebig5plus::shift_matched_var();
+sub Ebig5plus::capture($);
 sub Ebig5plus::ignorecase(@);
-sub Ebig5plus::chr($);
+sub Ebig5plus::chr(;$);
 sub Ebig5plus::chr_();
-sub Ebig5plus::ord($);
-sub Ebig5plus::ord_();
-sub Ebig5plus::reverse(@);
 sub Ebig5plus::r(;*@);
 sub Ebig5plus::w(;*@);
 sub Ebig5plus::x(;*@);
@@ -223,7 +220,10 @@ sub Ebig5plus::chdir(;$);
 sub Ebig5plus::do($);
 sub Ebig5plus::require(;$);
 
-sub Big5Plus::length;
+sub Big5Plus::ord(;$);
+sub Big5Plus::ord_();
+sub Big5Plus::reverse(@);
+sub Big5Plus::length(;$);
 sub Big5Plus::substr($$;$$);
 sub Big5Plus::index($$;$);
 sub Big5Plus::rindex($$;$);
@@ -430,11 +430,12 @@ sub Ebig5plus::split(;$$$) {
 #
 # Big5Plus transliteration (tr///)
 #
-sub Ebig5plus::tr($$$;$) {
+sub Ebig5plus::tr($$$$;$) {
 
-    my $searchlist      = $_[1];
-    my $replacementlist = $_[2];
-    my $modifier        = $_[3] || '';
+    my $bind_operator   = $_[1];
+    my $searchlist      = $_[2];
+    my $replacementlist = $_[3];
+    my $modifier        = $_[4] || '';
 
     my @char            = $_[0] =~ m/\G ($q_char) /oxmsg;
     my @searchlist      = _charlist_tr($searchlist);
@@ -496,7 +497,13 @@ sub Ebig5plus::tr($$$;$) {
             }
         }
     }
-    return $tr;
+
+    if ($bind_operator =~ m/ !~ /oxms) {
+        return not $tr;
+    }
+    else {
+        return $tr;
+    }
 }
 
 #
@@ -506,7 +513,7 @@ sub Ebig5plus::chop(@) {
 
     my $chop;
     if (@_ == 0) {
-        my @char = m/\G ($q_char)/oxmsg;
+        my @char = m/\G ($q_char) /oxmsg;
         $chop = pop @char;
         $_ = join '', @char;
     }
@@ -572,7 +579,7 @@ sub Ebig5plus::rindex($$;$) {
 #
 # Big5Plus lower case (with parameter)
 #
-sub Ebig5plus::lc($) {
+sub Ebig5plus::lc(@) {
 
     local $_ = shift if @_;
 
@@ -582,7 +589,7 @@ sub Ebig5plus::lc($) {
 
     local $^W = 0;
 
-    return join('', map {$lc{$_}||$_} m/\G ($q_char)/oxmsg);
+    return join('', map {$lc{$_}||$_} m/\G ($q_char) /oxmsg), @_;
 }
 
 #
@@ -596,13 +603,13 @@ sub Ebig5plus::lc_() {
 
     local $^W = 0;
 
-    return join('', map {$lc{$_}||$_} m/\G ($q_char)/oxmsg);
+    return join('', map {$lc{$_}||$_} m/\G ($q_char) /oxmsg);
 }
 
 #
 # Big5Plus upper case (with parameter)
 #
-sub Ebig5plus::uc($) {
+sub Ebig5plus::uc(@) {
 
     local $_ = shift if @_;
 
@@ -612,7 +619,7 @@ sub Ebig5plus::uc($) {
 
     local $^W = 0;
 
-    return join('', map {$uc{$_}||$_} m/\G ($q_char) /oxmsg);
+    return join('', map {$uc{$_}||$_} m/\G ($q_char) /oxmsg), @_;
 }
 
 #
@@ -630,22 +637,16 @@ sub Ebig5plus::uc_() {
 }
 
 #
-# Big5Plus shift matched variables
+# Big5Plus regexp capture
 #
-sub Ebig5plus::shift_matched_var() {
+sub Ebig5plus::capture($) {
 
-    # $1 --> return
-    # $2 --> $1
-    # $3 --> $2
-    # $4 --> $3
-    my $dollar1 = $1;
-
-    local $@;
-    for (my $digit=1; eval "defined(\$$digit)"; $digit++) {
-        eval sprintf '*%d = *%d', $digit, $digit+1;
+    if ($last_s_matched and ($_[0] =~ m/\A [1-9][0-9]* \z/oxms)) {
+        return $_[0] + 1;
     }
-
-    return $dollar1;
+    else {
+        return $_[0];
+    }
 }
 
 #
@@ -736,10 +737,15 @@ sub Ebig5plus::ignorecase(@) {
             # rewrite character class or escape character
             elsif (my $char = {
                 '\D' => '(?:[\x81-\xFE][\x00-\xFF]|[^\d])',
-                '\H' => '(?:[\x81-\xFE][\x00-\xFF]|[^\h])',
                 '\S' => '(?:[\x81-\xFE][\x00-\xFF]|[^\s])',
-                '\V' => '(?:[\x81-\xFE][\x00-\xFF]|[^\v])',
                 '\W' => '(?:[\x81-\xFE][\x00-\xFF]|[^\w])',
+
+                '\H' => '(?:[\x81-\xFE][\x00-\xFF]|[^\x09\x20])',
+                '\V' => '(?:[\x81-\xFE][\x00-\xFF]|[^\x0A\x0B\x0C\x0D])',
+
+                '\h' => '[\x09\x20]',         # not include \xA0
+                '\v' => '[\x0A\x0B\x0C\x0D]', # not include \x85
+
                 }->{$char[$i]}
             ) {
                 $char[$i] = $char;
@@ -1078,15 +1084,18 @@ sub _charlist {
                 '\a' => "\a",
                 '\e' => "\e",
                 '\d' => '\d',
-                '\h' => '\h',
                 '\s' => '\s',
-                '\v' => '\v',
                 '\w' => '\w',
                 '\D' => '(?:[\x81-\xFE][\x00-\xFF]|[^\d])',
-                '\H' => '(?:[\x81-\xFE][\x00-\xFF]|[^\h])',
                 '\S' => '(?:[\x81-\xFE][\x00-\xFF]|[^\s])',
-                '\V' => '(?:[\x81-\xFE][\x00-\xFF]|[^\v])',
                 '\W' => '(?:[\x81-\xFE][\x00-\xFF]|[^\w])',
+
+                '\H' => '(?:[\x81-\xFE][\x00-\xFF]|[^\x09\x20])',
+                '\V' => '(?:[\x81-\xFE][\x00-\xFF]|[^\x0A\x0B\x0C\x0D])',
+
+                '\h' => '[\x09\x20]',         # not include \xA0
+                '\v' => '[\x0A\x0B\x0C\x0D]', # not include \x85
+
             }->{$1};
         }
         elsif ($char[$i] =~ m/\A \\ ($q_char) \z/oxms) {
@@ -1190,7 +1199,15 @@ sub _charlist {
         }
 
         # single character of single octet code
-        elsif ($char[$i] =~ m/\A (?: [\x00-\xFF] | \\d | \\h | \\s | \\v | \\w ) \z/oxms) {
+        elsif ($char[$i] =~ m/\A (?: \\h ) \z/oxms) {
+            push @singleoctet, "\x09", "\x20";
+            $i += 1;
+        }
+        elsif ($char[$i] =~ m/\A (?: \\v ) \z/oxms) {
+            push @singleoctet, "\x0A","\x0B","\x0C","\x0D";
+            $i += 1;
+        }
+        elsif ($char[$i] =~ m/\A (?: [\x00-\xFF] | \\d | \\s | \\w ) \z/oxms) {
             push @singleoctet, $char[$i];
             $i += 1;
         }
@@ -1301,7 +1318,7 @@ sub charlist_not_qr {
 #
 # Big5Plus order to character (with parameter)
 #
-sub Ebig5plus::chr($) {
+sub Ebig5plus::chr(;$) {
 
     my $c = @_ ? $_[0] : $_;
 
@@ -1335,57 +1352,6 @@ sub Ebig5plus::chr_() {
             $c = int($c / 0x100);
         }
         return pack 'C*', @chr;
-    }
-}
-
-#
-# Big5Plus character to order (with parameter)
-#
-sub Ebig5plus::ord($) {
-
-    local $_ = shift if @_;
-
-    if (m/\A ($q_char) /oxms) {
-        my @ord = unpack 'C*', $1;
-        my $ord = 0;
-        while (my $o = shift @ord) {
-            $ord = $ord * 0x100 + $o;
-        }
-        return $ord;
-    }
-    else {
-        return CORE::ord $_;
-    }
-}
-
-#
-# Big5Plus character to order (without parameter)
-#
-sub Ebig5plus::ord_() {
-
-    if (m/\A ($q_char) /oxms) {
-        my @ord = unpack 'C*', $1;
-        my $ord = 0;
-        while (my $o = shift @ord) {
-            $ord = $ord * 0x100 + $o;
-        }
-        return $ord;
-    }
-    else {
-        return CORE::ord $_;
-    }
-}
-
-#
-# Big5Plus reverse
-#
-sub Ebig5plus::reverse(@) {
-
-    if (wantarray) {
-        return CORE::reverse @_;
-    }
-    else {
-        return join '', CORE::reverse(join('',@_) =~ m/\G ($q_char) /oxmsg);
     }
 }
 
@@ -3513,6 +3479,7 @@ sub _MSWin32_5Cended_path {
 # do Big5Plus file
 #
 sub Ebig5plus::do($) {
+
     my($filename) = @_;
 
     my $realfilename;
@@ -3574,6 +3541,7 @@ ITER_DO:
 # of ISBN 1-56592-149-6 Programming Perl, Second Edition.
 
 sub Ebig5plus::require(;$) {
+
     local $_ = shift if @_;
     return 1 if $INC{$_};
 
@@ -3630,13 +3598,65 @@ ITER_REQUIRE:
 }
 
 #
-# Big5Plus length by character
+# Big5Plus character to order (with parameter)
 #
-sub Big5Plus::length {
+sub Big5Plus::ord(;$) {
 
     local $_ = shift if @_;
 
-    return scalar m/\G ($q_char) /oxmsg;
+    if (m/\A ($q_char) /oxms) {
+        my @ord = unpack 'C*', $1;
+        my $ord = 0;
+        while (my $o = shift @ord) {
+            $ord = $ord * 0x100 + $o;
+        }
+        return $ord;
+    }
+    else {
+        return CORE::ord $_;
+    }
+}
+
+#
+# Big5Plus character to order (without parameter)
+#
+sub Big5Plus::ord_() {
+
+    if (m/\A ($q_char) /oxms) {
+        my @ord = unpack 'C*', $1;
+        my $ord = 0;
+        while (my $o = shift @ord) {
+            $ord = $ord * 0x100 + $o;
+        }
+        return $ord;
+    }
+    else {
+        return CORE::ord $_;
+    }
+}
+
+#
+# Big5Plus reverse
+#
+sub Big5Plus::reverse(@) {
+
+    if (wantarray) {
+        return CORE::reverse @_;
+    }
+    else {
+        return join '', CORE::reverse(join('',@_) =~ m/\G ($q_char) /oxmsg);
+    }
+}
+
+#
+# Big5Plus length by character
+#
+sub Big5Plus::length(;$) {
+
+    local $_ = shift if @_;
+
+    local @_ = m/\G ($q_char) /oxmsg;
+    return scalar @_;
 }
 
 #
@@ -3644,24 +3664,30 @@ sub Big5Plus::length {
 #
 sub Big5Plus::substr ($$;$$) {
 
-    if (defined $_[3]) {
-        if (defined $_[4]) {
-            my(undef,$offset,$length,$replacement) = @_;
-            if ($_[0] =~ s/\A ((?:$q_char){$offset}) ((?:$q_char){0,$length}) \z/$1$replacement/xms) {
-                return $2;
-            }
+    my @char = $_[0] =~ m/\G ($q_char) /oxmsg;
+
+    # substr($string,$offset,$length,$replacement)
+    if (@_ == 4) {
+        my(undef,$offset,$length,$replacement) = @_;
+        my $substr = join '', splice(@char, $offset, $length, $replacement);
+        $_[0] = join '', @char;
+        return $substr;
+    }
+
+    # substr($string,$offset,$length)
+    elsif (@_ == 3) {
+        my(undef,$offset,$length) = @_;
+        return join '', (@char[$offset .. $#char])[0 .. $length-1];
+    }
+
+    # substr($string,$offset)
+    else {
+        my(undef,$offset) = @_;
+        if ($offset >= 0) {
+            return join '', @char[$offset .. $#char];
         }
         else {
-            my($expr,$offset,$length) = @_;
-            if ($expr =~ m/\A (?:$q_char){$offset} ((?:$q_char){0,$length}) \z/xms) {
-                return $1;
-            }
-        }
-    }
-    else {
-        my($expr,$offset) = @_;
-        if ($expr =~ m/\A (?:$q_char){$offset} (.*) \z/xms) {
-            return $1;
+            return join '', @char[($#char+$offset+1) .. $#char];
         }
     }
 
@@ -3675,10 +3701,10 @@ sub Big5Plus::index($$;$) {
 
     my $index;
     if (@_ == 3) {
-        $index = Ebig5plus::index($_[0],$_[1],$_[2]);
+        $index = Ebig5plus::index($_[0], $_[1], CORE::length(Big5Plus::substr($_[0], 0, $_[2])));
     }
     else {
-        $index = Ebig5plus::index($_[0],$_[1]);
+        $index = Ebig5plus::index($_[0], $_[1]);
     }
 
     if ($index == -1) {
@@ -3696,10 +3722,10 @@ sub Big5Plus::rindex($$;$) {
 
     my $rindex;
     if (@_ == 3) {
-        $rindex = Ebig5plus::rindex($_[0],$_[1],$_[2]);
+        $rindex = Ebig5plus::rindex($_[0], $_[1], CORE::length(Big5Plus::substr($_[0], 0, $_[2])));
     }
     else {
-        $rindex = Ebig5plus::rindex($_[0],$_[1]);
+        $rindex = Ebig5plus::rindex($_[0], $_[1]);
     }
 
     if ($rindex == -1) {
@@ -3736,13 +3762,10 @@ Ebig5plus - Run-time routines for Big5Plus.pm
     Ebig5plus::lc_;
     Ebig5plus::uc(...);
     Ebig5plus::uc_;
-    Ebig5plus::shift_matched_var();
+    Ebig5plus::capture(...);
     Ebig5plus::ignorecase(...);
     Ebig5plus::chr(...);
     Ebig5plus::chr_;
-    Ebig5plus::ord(...);
-    Ebig5plus::ord_;
-    Ebig5plus::reverse(...);
     Ebig5plus::X ...;
     Ebig5plus::X_;
     Ebig5plus::glob(...);
@@ -3757,6 +3780,9 @@ Ebig5plus - Run-time routines for Big5Plus.pm
     Ebig5plus::do(...);
     Ebig5plus::require(...);
 
+    Big5Plus::ord(...);
+    Big5Plus::ord_;
+    Big5Plus::reverse(...);
     Big5Plus::length(...);
     Big5Plus::substr(...);
     Big5Plus::index(...);
@@ -3831,13 +3857,13 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 =item Transliteration
 
-  $tr = Ebig5plus::tr($string,$searchlist,$replacementlist,$modifier);
-  $tr = Ebig5plus::tr($string,$searchlist,$replacementlist);
+  $tr = Ebig5plus::tr($variable,$bind_operator,$searchlist,$replacementlist,$modifier);
+  $tr = Ebig5plus::tr($variable,$bind_operator,$searchlist,$replacementlist);
 
   This function scans a Big5Plus string character by character and replaces all
   occurrences of the characters found in $searchlist with the corresponding character
   in $replacementlist. It returns the number of characters replaced or deleted.
-  If no Big5Plus string is specified via =~ operator, the $_ string is translated.
+  If no Big5Plus string is specified via =~ operator, the $_ variable is translated.
   $modifier are:
 
   Modifier   Meaning
@@ -3896,17 +3922,17 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
   This is the internal function implementing the \U escape in double-quoted
   strings.
 
-=item Shift matched variables
+=item Make capture number
 
-  $dollar1 = Ebig5plus::shift_matched_var();
+  $capturenumber = Ebig5plus::capture($string);
 
-  This function is internal use to s/ / /.
+  This function is internal use to m/ /i, s/ / /i, split and qr/ /i.
 
 =item Make ignore case string
 
   @ignorecase = Ebig5plus::ignorecase(@string);
 
-  This function is internal use to m/ /i, s/ / /i and qr/ /i.
+  This function is internal use to m/ /i, s/ / /i, split and qr/ /i.
 
 =item Make character
 
@@ -3916,33 +3942,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
   This function returns the character represented by that $code in the character
   set. For example, Ebig5plus::chr(65) is "A" in either ASCII or Big5Plus, and
   Ebig5plus::chr(0x82a0) is a Big5Plus HIRAGANA LETTER A. For the reverse of Ebig5plus::chr,
-  use Ebig5plus::ord.
-
-=item Order of Character
-
-  $ord = Ebig5plus::ord($string);
-  $ord = Ebig5plus::ord_;
-
-  This function returns the numeric value (ASCII or Big5Plus) of the first character
-  of $string. The return value is always unsigned.
-
-=item Reverse list or string
-
-  @reverse = Ebig5plus::reverse(@list);
-  $reverse = Ebig5plus::reverse(@list);
-
-  In list context, this function returns a list value consisting of the elements of
-  @list in the opposite order. The function can be used to create descending sequences:
-
-  for (Ebig5plus::reverse(1 .. 10)) { ... }
-
-  Because of the way hashes flatten into lists when passed as a @list, reverse can also
-  be used to invert a hash, presuming the values are unique:
-
-  %barfoo = Ebig5plus::reverse(%foobar);
-
-  In scalar context, the function concatenates all the elements of LIST and then returns
-  the reverse of that resulting string, character by character.
+  use Big5Plus::ord.
 
 =item File test operator -X
 
@@ -4192,6 +4192,32 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
   it'll return true otherwise.
 
   See also do file.
+
+=item Order of Character
+
+  $ord = Big5Plus::ord($string);
+  $ord = Big5Plus::ord_;
+
+  This function returns the numeric value (ASCII or Big5Plus) of the first character
+  of $string. The return value is always unsigned.
+
+=item Reverse list or string
+
+  @reverse = Big5Plus::reverse(@list);
+  $reverse = Big5Plus::reverse(@list);
+
+  In list context, this function returns a list value consisting of the elements of
+  @list in the opposite order. The function can be used to create descending sequences:
+
+  for (Big5Plus::reverse(1 .. 10)) { ... }
+
+  Because of the way hashes flatten into lists when passed as a @list, reverse can also
+  be used to invert a hash, presuming the values are unique:
+
+  %barfoo = Big5Plus::reverse(%foobar);
+
+  In scalar context, the function concatenates all the elements of LIST and then returns
+  the reverse of that resulting string, character by character.
 
 =item length by Big5Plus character
 

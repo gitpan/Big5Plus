@@ -19,7 +19,7 @@ DESCRIPTION
       This software is "Yet Another JPerl" written by Perl.
       We can write the script in Big5Plus again.
 
-      This software is a beta version for the public comment.
+      This software treats Big5Plus directly. Therefore, there is not UTF8 flag.
 
 INSTALLATION
 
