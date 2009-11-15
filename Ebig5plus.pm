@@ -11,7 +11,7 @@ use strict;
 use 5.00503;
 use vars qw($VERSION $_warning);
 
-$VERSION = sprintf '%d.%02d', q$Revision: 0.43 $ =~ m/(\d+)/xmsg;
+$VERSION = sprintf '%d.%02d', q$Revision: 0.44 $ =~ m/(\d+)/xmsg;
 
 use Fcntl;
 use Symbol;
@@ -173,6 +173,7 @@ sub Ebig5plus::capture($);
 sub Ebig5plus::ignorecase(@);
 sub Ebig5plus::chr(;$);
 sub Ebig5plus::chr_();
+sub Ebig5plus::filetest(@);
 sub Ebig5plus::r(;*@);
 sub Ebig5plus::w(;*@);
 sub Ebig5plus::x(;*@);
@@ -200,6 +201,7 @@ sub Ebig5plus::B(;*@);
 sub Ebig5plus::M(;*@);
 sub Ebig5plus::A(;*@);
 sub Ebig5plus::C(;*@);
+sub Ebig5plus::filetest_(@);
 sub Ebig5plus::r_();
 sub Ebig5plus::w_();
 sub Ebig5plus::x_();
@@ -1380,6 +1382,25 @@ sub Ebig5plus::chr_() {
 }
 
 #
+# Big5Plus stacked file test expr
+#
+sub Ebig5plus::filetest (@) {
+
+    my $file     = pop @_;
+    my $filetest = substr(pop @_, 1);
+
+    unless (eval qq{Ebig5plus::$filetest(\$file)}) {
+        return '';
+    }
+    for my $filetest (reverse @_) {
+        unless (eval qq{ $filetest _ }) {
+            return '';
+        }
+    }
+    return 1;
+}
+
+#
 # Big5Plus file test -r expr
 #
 sub Ebig5plus::r(;*@) {
@@ -2352,6 +2373,24 @@ sub Ebig5plus::C(;*@) {
         }
     }
     return wantarray ? (undef,@_) : undef;
+}
+
+#
+# Big5Plus stacked file test $_
+#
+sub Ebig5plus::filetest_ (@) {
+
+    my $filetest = substr(pop @_, 1);
+
+    unless (eval qq{Ebig5plus::${filetest}_}) {
+        return '';
+    }
+    for my $filetest (reverse @_) {
+        unless (eval qq{ $filetest _ }) {
+            return '';
+        }
+    }
+    return 1;
 }
 
 #
