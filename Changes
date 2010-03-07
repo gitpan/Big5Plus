@@ -1,5 +1,9 @@
 Revision history for this software.
 
+0.51  2010/03/07 00:00:00
+	- remove ** UNAUTHORIZED RELEASE ** modules (Fcntl.pm and Symbol.pm).
+	; created by INABA Hitoshi
+
 0.50  2010/03/07 00:00:00
 	- correct INFOMIXV6ALS to INFORMIXV6ALS (sorry!! forgive me!! ;X).
 	- add UNIX shell escape.

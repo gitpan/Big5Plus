@@ -17,7 +17,7 @@ use 5.00503;
 use Ebig5plus;
 BEGIN { eval q{ use vars qw($VERSION) } }
 
-$VERSION = sprintf '%d.%02d', q$Revision: 0.50 $ =~ m/(\d+)/oxmsg;
+$VERSION = sprintf '%d.%02d', q$Revision: 0.51 $ =~ m/(\d+)/oxmsg;
 
 use Fcntl qw(:DEFAULT :flock);
 use Symbol;

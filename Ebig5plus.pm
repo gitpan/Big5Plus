@@ -16,7 +16,7 @@ BEGIN {
 use 5.00503;
 BEGIN { eval q{ use vars qw($VERSION $_warning) } }
 
-$VERSION = sprintf '%d.%02d', q$Revision: 0.50 $ =~ m/(\d+)/xmsg;
+$VERSION = sprintf '%d.%02d', q$Revision: 0.51 $ =~ m/(\d+)/xmsg;
 
 use Fcntl;
 use Symbol;
