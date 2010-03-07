@@ -1,5 +1,15 @@
 Revision history for this software.
 
+0.50  2010/03/07 00:00:00
+	- correct INFOMIXV6ALS to INFORMIXV6ALS (sorry!! forgive me!! ;X).
+	- add UNIX shell escape.
+	- glob @ARGV when [?*] included only.
+	- avoid warning in Esjis::e.
+	- flock on write and read script.
+	- add substitute modules (Fcntl.pm and Symbol.pm).
+	- remove modules (Carp.pm and FindBin.pm).
+	; created by INABA Hitoshi
+
 0.49  2010/02/10 00:00:00
 	- add perl512.bat
 	- redefined character class \d \s \w for perl 5.11 or later.

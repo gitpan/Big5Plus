@@ -9,26 +9,30 @@ package Big5Plus;
 #
 ######################################################################
 
-use strict;
+BEGIN {
+    eval { require 'strict.pm';   'strict'  ->import; };
+#   eval { require 'warnings.pm'; 'warnings'->import; };
+}
 use 5.00503;
 use Ebig5plus;
-use vars qw($VERSION);
+BEGIN { eval q{ use vars qw($VERSION) } }
 
-$VERSION = sprintf '%d.%02d', q$Revision: 0.49 $ =~ m/(\d+)/oxmsg;
+$VERSION = sprintf '%d.%02d', q$Revision: 0.50 $ =~ m/(\d+)/oxmsg;
 
-use Fcntl;
+use Fcntl qw(:DEFAULT :flock);
 use Symbol;
 
-use Carp qw(carp croak confess cluck verbose);
-local $SIG{__DIE__}  = sub { confess @_ } if exists $ENV{'SJIS_DEBUG'};
-local $SIG{__WARN__} = sub { cluck   @_ } if exists $ENV{'SJIS_DEBUG'};
 local $^W = 1;
+
+# P.707 29.2.33. exec
+# in Chapter 29: Functions
+# of ISBN 0-596-00027-8 Programming Perl Third Edition.
 
 $| = 1;
 
 BEGIN {
     if ($^X =~ m/ jperl /oxmsi) {
-        croak __FILE__, ": need perl(not jperl) 5.00503 or later. (\$^X==$^X)";
+        die __FILE__, ": need perl(not jperl) 5.00503 or later. (\$^X==$^X)";
     }
 }
 
@@ -46,7 +50,7 @@ my  $q_char   = qr/$your_char/oxms;
 
 my $your_gap = q{\G(?:[\x81-\xFE][\x00-\xFF]|[^\x81-\xFE])*?};
 
-use vars qw($nest);
+BEGIN { eval q{ use vars qw($nest) } }
 
 # regexp of nested parens in qqXX
 
@@ -122,10 +126,15 @@ my $q_angle    = qr{(?{local $nest=0}) (?>(?:
                              \>  (?(?{$nest>0})(?{$nest--})|(?!)))*) (?(?{$nest!=0})(?!))
                  }xms;
 
+my $use_re_eval = qq{use re 'eval';\n};
+my $m_matched   = '(?{Ebig5plus::m_matched})';
+my $s_matched   = '(?{Ebig5plus::s_matched})';
+
 my $tr_variable   = '';   # variable of tr///
 my $sub_variable  = '';   # variable of s///
 my $bind_operator = '';   # =~ or !~
-use vars qw($slash);      # when 'm//', '/' means regexp match 'm//' and '?' means regexp match '??'
+BEGIN { eval q{ use vars qw($slash) } }
+                          # when 'm//', '/' means regexp match 'm//' and '?' means regexp match '??'
                           # when 'div', '/' means division operator and '?' means conditional operator (condition ? then : else)
 my @heredoc = ();         # here document
 my @heredoc_delimiter = ();
@@ -407,7 +416,7 @@ my($package,$filename,$line,$subroutine,$hasargs,$wantarray,$evaltext,$is_requir
 
 # called any package not main
 if ($package ne 'main') {
-    croak <<END;
+    die <<END;
 $__FILE__: escape by manually command '$^X $__FILE__ "$filename" > "$__PACKAGE__::$filename"'
 and rewrite "use $package;" to "use $__PACKAGE__::$package;" of script "$0".
 END
@@ -420,17 +429,30 @@ if (exists $ENV{'SJIS_DEBUG'}) {
     Ebig5plus::unlink "$filename.e";
 }
 
-# make escaped script
-my $e_script  = '';
-
 my $e_mtime   = (Ebig5plus::stat("$filename.e"))[9];
 my $mtime     = (Ebig5plus::stat($filename))[9];
 my $__mtime__ = (Ebig5plus::stat($__FILE__))[9];
 if ((not Ebig5plus::e("$filename.e")) or ($e_mtime < $mtime) or ($mtime < $__mtime__)) {
     my $fh = Symbol::gensym();
-    sysopen($fh, "$filename.e", O_WRONLY | O_TRUNC | O_CREAT) or croak "$__FILE__: Can't open file: $filename.e";
-    print {$fh} Big5Plus::escape_script($filename);
-    close($fh) or croak "$__FILE__: Can't close file: $filename.e";
+    sysopen($fh, "$filename.e", O_WRONLY | O_TRUNC | O_CREAT) or die "$__FILE__: Can't write open file: $filename.e";
+    if (exists $ENV{'SJIS_NONBLOCK'}) {
+        eval q{
+            unless (flock($fh, LOCK_EX | LOCK_NB)) {
+                warn "$__FILE__: Can't immediately write-lock the file: $filename.e";
+                exit;
+            }
+        };
+    }
+    else {
+        eval q{ flock($fh, LOCK_EX) };
+    }
+
+    my $e_script = Big5Plus::escape_script($filename);
+    print {$fh} $e_script;
+
+    my $mode = (Ebig5plus::stat($filename))[2] & 0777;
+    chmod $mode, "$filename.e";
+    close($fh) or die "$__FILE__: Can't close file: $filename.e";
 }
 
 # P.565 23.1.2. Cleaning Up Your Environment
@@ -440,7 +462,36 @@ if ((not Ebig5plus::e("$filename.e")) or ($e_mtime < $mtime) or ($mtime < $__mti
 # local $ENV{'PATH'} = '.';
 local @ENV{qw(IFS CDPATH ENV BASH_ENV)};
 
-exit system map {m/ $your_gap [ ] /oxms ? qq{"$_"} : $_} $^X, "$filename.e", @ARGV;
+my $fh = Symbol::gensym();
+sysopen($fh, "$filename.e", O_RDONLY) or die "$__FILE__: Can't read open file: $filename.e";
+if (exists $ENV{'SJIS_NONBLOCK'}) {
+    eval q{
+        unless (flock($fh, LOCK_SH | LOCK_NB)) {
+            warn "$__FILE__: Can't immediately read-lock the file: $filename.e";
+            exit;
+        }
+    };
+}
+else {
+    eval q{ flock($fh, LOCK_SH) };
+}
+
+# DOS like system
+if ($^O =~ /\A (?: MSWin32 | NetWare | symbian | dos ) \z/oxms) {
+    exit system map {m/ $your_gap [ ] /oxms ? qq{"$_"} : $_} $^X, "$filename.e", @ARGV;
+}
+
+# UNIX like system
+else {
+    exit system map { escapeshellcmd($_) }                   $^X, "$filename.e", @ARGV;
+}
+
+# escape shell command line
+sub escapeshellcmd {
+    my($word) = @_;
+    $word =~ s/([\t\n\r\x20!"#$%&'()*+;<=>?\[\\\]^`{|}~\x7F\xFF])/\\$1/g;
+    return $word;
+}
 
 # escape Big5Plus script
 sub Big5Plus::escape_script {
@@ -449,10 +500,10 @@ sub Big5Plus::escape_script {
 
     # read Big5Plus script
     my $fh = Symbol::gensym();
-    sysopen($fh, $script, O_RDONLY) or croak "$__FILE__: Can't open file: $script";
+    sysopen($fh, $script, O_RDONLY) or die "$__FILE__: Can't open file: $script";
     local $/ = undef; # slurp mode
     $_ = <$fh>;
-    close($fh) or croak "$__FILE__: Can't close file: $script";
+    close($fh) or die "$__FILE__: Can't close file: $script";
 
     if (m/^ use Ebig5plus(?:\s+[0-9\.]*)?\s*; $/oxms) {
         return $_;
@@ -480,10 +531,7 @@ sub Big5Plus::escape_script {
         # in Chapter 5: Pattern Matching
         # of ISBN 0-596-00027-8 Programming Perl Third Edition.
 
-        $e_script .= sprintf(<<'END', $Ebig5plus::VERSION); # require run-time routines version
-use Ebig5plus %s;
-use re 'eval';
-END
+        $e_script .= sprintf("use Ebig5plus %s;\n%s", $Ebig5plus::VERSION, $use_re_eval); # require run-time routines version
 
         # use Big5Plus version qw(ord reverse);
         $function_ord     = 'ord';
@@ -496,7 +544,7 @@ END
             if ($list =~ s/\A ([0-9]+(?:\.[0-9]*)) \s* //oxms) {
                 my $version = $1;
                 if ($version > $VERSION) {
-                    croak "$__FILE__: version $version required--this is only version $VERSION";
+                    die "$__FILE__: version $version required--this is only version $VERSION";
                 }
             }
 
@@ -926,7 +974,7 @@ sub escape {
                     elsif (/\G ([*\-:?\\^|]) ((?:$qq_char)*?)    (\1) /oxgc) { return $e . e_split('qr','{','}',$2,''); } # qq | | --> qr { }
                     elsif (/\G (\S)          ((?:$qq_char)*?)    (\1) /oxgc) { return $e . e_split('qr',$1,$3,$2,'');   } # qq * * --> qr * *
                 }
-                croak "$__FILE__: Can't find string terminator anywhere before EOF";
+                die "$__FILE__: Can't find string terminator anywhere before EOF";
             }
         }
 
@@ -944,7 +992,7 @@ sub escape {
                     elsif (/\G ([*\-:?\\^|]) ((?:$qq_char)*?)    (\1) ([imosxp]*) /oxgc) { return $e . e_split  ('qr','{','}',$2,$4); } # qr | | --> qr { }
                     elsif (/\G (\S)          ((?:$qq_char)*?)    (\1) ([imosxp]*) /oxgc) { return $e . e_split  ('qr',$1, $3, $2,$4); } # qr * *
                 }
-                croak "$__FILE__: Can't find string terminator anywhere before EOF";
+                die "$__FILE__: Can't find string terminator anywhere before EOF";
             }
         }
 
@@ -961,7 +1009,7 @@ sub escape {
                     elsif (/\G ([*\-:?\\^|])       ((?:$q_char)*?)    (\1) /oxgc) { return $e . e_split_q('qr','{','}',$2,''); } # q | | --> qr { }
                     elsif (/\G (\S) ((?:\\\\|\\\1|     $q_char)*?)    (\1) /oxgc) { return $e . e_split_q('qr',$1,$3,$2,'');   } # q * * --> qr * *
                 }
-                croak "$__FILE__: Can't find string terminator anywhere before EOF";
+                die "$__FILE__: Can't find string terminator anywhere before EOF";
             }
         }
 
@@ -979,7 +1027,7 @@ sub escape {
                     elsif (/\G ([*\-:?\\^|]) ((?:$qq_char)*?)    (\1) ([cgimosxp]*) /oxgc) { return $e . e_split  ('qr','{','}',$2,$4); } # m | | --> qr { }
                     elsif (/\G (\S)          ((?:$qq_char)*?)    (\1) ([cgimosxp]*) /oxgc) { return $e . e_split  ('qr',$1, $3, $2,$4); } # m * * --> qr * *
                 }
-                croak "$__FILE__: Search pattern not terminated";
+                die "$__FILE__: Search pattern not terminated";
             }
         }
 
@@ -992,7 +1040,7 @@ sub escape {
                 elsif (/\G \'        /oxgc)                                                    { return $e . e_split_q(q{ qr},"'","'",$q_string,''); } # ' ' --> qr ' '
                 elsif (/\G ($q_char) /oxgc) { $q_string .= $1; }
             }
-            croak "$__FILE__: Can't find string terminator anywhere before EOF";
+            die "$__FILE__: Can't find string terminator anywhere before EOF";
         }
 
 # split ""
@@ -1004,7 +1052,7 @@ sub escape {
                 elsif (/\G \"        /oxgc)                                                    { return $e . e_split(q{ qr},'"','"',$qq_string,''); } # " " --> qr " "
                 elsif (/\G ($q_char) /oxgc) { $qq_string .= $1; }
             }
-            croak "$__FILE__: Can't find string terminator anywhere before EOF";
+            die "$__FILE__: Can't find string terminator anywhere before EOF";
         }
 
 # split //
@@ -1016,7 +1064,7 @@ sub escape {
                 elsif (/\G \/ ([cgimosxp]*) /oxgc)                                             { return $e . e_split(q{ qr}, '/','/',$regexp,$1); } # / / --> qr / /
                 elsif (/\G ($q_char)        /oxgc) { $regexp .= $1; }
             }
-            croak "$__FILE__: Search pattern not terminated";
+            die "$__FILE__: Search pattern not terminated";
         }
     }
 
@@ -1050,7 +1098,7 @@ sub escape {
                         elsif (/\G (\<) ((?:$qq_angle)*?)   (\>) ([cdsbB]*) /oxgc) { return e_tr(@tr,$e,$2,$4); } # tr ( ) < >
                         elsif (/\G (\S) ((?:$qq_char)*?)    (\1) ([cdsbB]*) /oxgc) { return e_tr(@tr,$e,$2,$4); } # tr ( ) * *
                     }
-                    croak "$__FILE__: Transliteration replacement not terminated";
+                    die "$__FILE__: Transliteration replacement not terminated";
                 }
                 elsif (/\G (\{) ((?:$qq_brace)*?) (\}) /oxgc) {
                     my @tr = ($tr_variable,$2);
@@ -1062,7 +1110,7 @@ sub escape {
                         elsif (/\G (\<) ((?:$qq_angle)*?)   (\>) ([cdsbB]*) /oxgc) { return e_tr(@tr,$e,$2,$4); } # tr { } < >
                         elsif (/\G (\S) ((?:$qq_char)*?)    (\1) ([cdsbB]*) /oxgc) { return e_tr(@tr,$e,$2,$4); } # tr { } * *
                     }
-                    croak "$__FILE__: Transliteration replacement not terminated";
+                    die "$__FILE__: Transliteration replacement not terminated";
                 }
                 elsif (/\G (\[) ((?:$qq_bracket)*?) (\]) /oxgc) {
                     my @tr = ($tr_variable,$2);
@@ -1074,7 +1122,7 @@ sub escape {
                         elsif (/\G (\<) ((?:$qq_angle)*?)   (\>) ([cdsbB]*) /oxgc) { return e_tr(@tr,$e,$2,$4); } # tr [ ] < >
                         elsif (/\G (\S) ((?:$qq_char)*?)    (\1) ([cdsbB]*) /oxgc) { return e_tr(@tr,$e,$2,$4); } # tr [ ] * *
                     }
-                    croak "$__FILE__: Transliteration replacement not terminated";
+                    die "$__FILE__: Transliteration replacement not terminated";
                 }
                 elsif (/\G (\<) ((?:$qq_angle)*?) (\>) /oxgc) {
                     my @tr = ($tr_variable,$2);
@@ -1086,7 +1134,7 @@ sub escape {
                         elsif (/\G (\<) ((?:$qq_angle)*?)   (\>) ([cdsbB]*) /oxgc) { return e_tr(@tr,$e,$2,$4); } # tr < > < >
                         elsif (/\G (\S) ((?:$qq_char)*?)    (\1) ([cdsbB]*) /oxgc) { return e_tr(@tr,$e,$2,$4); } # tr < > * *
                     }
-                    croak "$__FILE__: Transliteration replacement not terminated";
+                    die "$__FILE__: Transliteration replacement not terminated";
                 }
                 #           $1   $2               $3   $4               $5   $6
                 elsif (/\G (\S) ((?:$qq_char)*?) (\1) ((?:$qq_char)*?) (\1) ([cdsbB]*) /oxgc) { # tr * * *
@@ -1094,7 +1142,7 @@ sub escape {
                     return e_tr(@tr,'',$4,$6);
                 }
             }
-            croak "$__FILE__: Transliteration pattern not terminated";
+            die "$__FILE__: Transliteration pattern not terminated";
         }
     }
 
@@ -1111,7 +1159,7 @@ sub escape {
                 elsif (/\G (\#)       /oxgc) { return e_qq($ope,'#','#',$qq_string); }
                 elsif (/\G ($qq_char) /oxgc) { $qq_string .= $1;                     }
             }
-            croak "$__FILE__: Can't find string terminator anywhere before EOF";
+            die "$__FILE__: Can't find string terminator anywhere before EOF";
         }
 
         else {
@@ -1133,7 +1181,7 @@ sub escape {
                         }
                         elsif (/\G ($qq_char) /oxgc) { $qq_string .= $1;                          }
                     }
-                    croak "$__FILE__: Can't find string terminator anywhere before EOF";
+                    die "$__FILE__: Can't find string terminator anywhere before EOF";
                 }
 
 #               elsif (/\G (\{) ((?:$qq_brace)*?) (\}) /oxgc) { return $e . e_qq($ope,$1,$3,$2); } # qq { }
@@ -1150,7 +1198,7 @@ sub escape {
                         }
                         elsif (/\G ($qq_char) /oxgc) { $qq_string .= $1;                          }
                     }
-                    croak "$__FILE__: Can't find string terminator anywhere before EOF";
+                    die "$__FILE__: Can't find string terminator anywhere before EOF";
                 }
 
 #               elsif (/\G (\[) ((?:$qq_bracket)*?) (\]) /oxgc) { return $e . e_qq($ope,$1,$3,$2); } # qq [ ]
@@ -1167,7 +1215,7 @@ sub escape {
                         }
                         elsif (/\G ($qq_char) /oxgc) { $qq_string .= $1;                          }
                     }
-                    croak "$__FILE__: Can't find string terminator anywhere before EOF";
+                    die "$__FILE__: Can't find string terminator anywhere before EOF";
                 }
 
 #               elsif (/\G (\<) ((?:$qq_angle)*?) (\>) /oxgc) { return $e . e_qq($ope,$1,$3,$2); } # qq < >
@@ -1184,7 +1232,7 @@ sub escape {
                         }
                         elsif (/\G ($qq_char) /oxgc) { $qq_string .= $1;                          }
                     }
-                    croak "$__FILE__: Can't find string terminator anywhere before EOF";
+                    die "$__FILE__: Can't find string terminator anywhere before EOF";
                 }
 
 #               elsif (/\G (\S) ((?:$qq_char)*?) (\1) /oxgc) { return $e . e_qq($ope,$1,$3,$2); } # qq * *
@@ -1197,10 +1245,10 @@ sub escape {
                         elsif (/\G (\Q$delimiter\E)   /oxgc) { return $e . e_qq($ope,$delimiter,$delimiter,$qq_string); }
                         elsif (/\G ($qq_char)         /oxgc) { $qq_string .= $1;                                        }
                     }
-                    croak "$__FILE__: Can't find string terminator anywhere before EOF";
+                    die "$__FILE__: Can't find string terminator anywhere before EOF";
                 }
             }
-            croak "$__FILE__: Can't find string terminator anywhere before EOF";
+            die "$__FILE__: Can't find string terminator anywhere before EOF";
         }
     }
 
@@ -1222,7 +1270,7 @@ sub escape {
                 elsif (/\G ([*\-:?\\^|]) ((?:$qq_char)*?)    (\1) ([imosxp]*) /oxgc) { return $e . e_qr  ($ope,'{','}',$2,$4); } # qr | | --> qr { }
                 elsif (/\G (\S)          ((?:$qq_char)*?)    (\1) ([imosxp]*) /oxgc) { return $e . e_qr  ($ope,$1, $3, $2,$4); } # qr * *
             }
-            croak "$__FILE__: Can't find string terminator anywhere before EOF";
+            die "$__FILE__: Can't find string terminator anywhere before EOF";
         }
     }
 
@@ -1252,7 +1300,7 @@ sub escape {
                 elsif (/\G ([\x21-\x3F]) (.*?)              (\1) /oxmsgc) { return $e . e_qw($ope,$1,$3,$2); } # qw * *
                 elsif (/\G (\S)          ((?:$q_char)*?)    (\1) /oxmsgc) { return $e . e_qw($ope,$1,$3,$2); } # qw * *
             }
-            croak "$__FILE__: Can't find string terminator anywhere before EOF";
+            die "$__FILE__: Can't find string terminator anywhere before EOF";
         }
     }
 
@@ -1273,7 +1321,7 @@ sub escape {
                 elsif (/\G (\') ((?:$qq_char)*?)    (\') /oxgc) { return $e . e_q ($ope,$1,$3,$2); } # qx ' '
                 elsif (/\G (\S) ((?:$qq_char)*?)    (\1) /oxgc) { return $e . e_qq($ope,$1,$3,$2); } # qx * *
             }
-            croak "$__FILE__: Can't find string terminator anywhere before EOF";
+            die "$__FILE__: Can't find string terminator anywhere before EOF";
         }
     }
 
@@ -1294,7 +1342,7 @@ sub escape {
                 elsif (/\G (\#)      /oxgc) { return e_q($ope,'#','#',$q_string); }
                 elsif (/\G ($q_char) /oxgc) { $q_string .= $1;                    }
             }
-            croak "$__FILE__: Can't find string terminator anywhere before EOF";
+            die "$__FILE__: Can't find string terminator anywhere before EOF";
         }
 
         else {
@@ -1317,7 +1365,7 @@ sub escape {
                         }
                         elsif (/\G ($q_char) /oxgc) { $q_string .= $1;                         }
                     }
-                    croak "$__FILE__: Can't find string terminator anywhere before EOF";
+                    die "$__FILE__: Can't find string terminator anywhere before EOF";
                 }
 
 #               elsif (/\G (\{) ((?:\\\}|\\\\|$q_brace)*?) (\}) /oxgc) { return $e . e_q($ope,$1,$3,$2); } # q { }
@@ -1335,7 +1383,7 @@ sub escape {
                         }
                         elsif (/\G ($q_char) /oxgc) { $q_string .= $1;                         }
                     }
-                    croak "$__FILE__: Can't find string terminator anywhere before EOF";
+                    die "$__FILE__: Can't find string terminator anywhere before EOF";
                 }
 
 #               elsif (/\G (\[) ((?:\\\]|\\\\|$q_bracket)*?) (\]) /oxgc) { return $e . e_q($ope,$1,$3,$2); } # q [ ]
@@ -1353,7 +1401,7 @@ sub escape {
                         }
                         elsif (/\G ($q_char) /oxgc) { $q_string .= $1;                         }
                     }
-                    croak "$__FILE__: Can't find string terminator anywhere before EOF";
+                    die "$__FILE__: Can't find string terminator anywhere before EOF";
                 }
 
 #               elsif (/\G (\<) ((?:\\\>|\\\\|$q_angle)*?) (\>) /oxgc) { return $e . e_q($ope,$1,$3,$2); } # q < >
@@ -1371,7 +1419,7 @@ sub escape {
                         }
                         elsif (/\G ($q_char) /oxgc) { $q_string .= $1;                         }
                     }
-                    croak "$__FILE__: Can't find string terminator anywhere before EOF";
+                    die "$__FILE__: Can't find string terminator anywhere before EOF";
                 }
 
 #               elsif (/\G (\S) ((?:\\\1|\\\\|$q_char)*?) (\1) /oxgc) { return $e . e_q($ope,$1,$3,$2); } # q * *
@@ -1384,10 +1432,10 @@ sub escape {
                         elsif (/\G (\Q$delimiter\E)   /oxgc) { return $e . e_q($ope,$delimiter,$delimiter,$q_string); }
                         elsif (/\G ($q_char)          /oxgc) { $q_string .= $1;                                       }
                     }
-                    croak "$__FILE__: Can't find string terminator anywhere before EOF";
+                    die "$__FILE__: Can't find string terminator anywhere before EOF";
                 }
             }
-            croak "$__FILE__: Can't find string terminator anywhere before EOF";
+            die "$__FILE__: Can't find string terminator anywhere before EOF";
         }
     }
 
@@ -1409,7 +1457,7 @@ sub escape {
                 elsif (/\G ([*\-:?\\^|]) ((?:$qq_char)*?)    (\1) ([cgimosxp]*) /oxgc) { return $e . e_qr  ($ope,'{','}',$2,$4); } # m | | --> m { }
                 elsif (/\G (\S)          ((?:$qq_char)*?)    (\1) ([cgimosxp]*) /oxgc) { return $e . e_qr  ($ope,$1, $3, $2,$4); } # m * *
             }
-            croak "$__FILE__: Search pattern not terminated";
+            die "$__FILE__: Search pattern not terminated";
         }
     }
 
@@ -1446,7 +1494,7 @@ sub escape {
                         elsif (/\G (\@) ((?:$qq_char)*?)    (\@) ([cegimosxp]*) /oxgc) { return e_sub($sub_variable,@s,$1,$2,$3,$4); }
                         elsif (/\G (\S) ((?:$qq_char)*?)    (\1) ([cegimosxp]*) /oxgc) { return e_sub($sub_variable,@s,$1,$2,$3,$4); }
                     }
-                    croak "$__FILE__: Substitution replacement not terminated";
+                    die "$__FILE__: Substitution replacement not terminated";
                 }
                 elsif (/\G (\{) ((?:$qq_brace)*?) (\}) /oxgc) {
                     my @s = ($1,$2,$3);
@@ -1463,7 +1511,7 @@ sub escape {
                         elsif (/\G (\@) ((?:$qq_char)*?)    (\@) ([cegimosxp]*) /oxgc) { return e_sub($sub_variable,@s,$1,$2,$3,$4); }
                         elsif (/\G (\S) ((?:$qq_char)*?)    (\1) ([cegimosxp]*) /oxgc) { return e_sub($sub_variable,@s,$1,$2,$3,$4); }
                     }
-                    croak "$__FILE__: Substitution replacement not terminated";
+                    die "$__FILE__: Substitution replacement not terminated";
                 }
                 elsif (/\G (\[) ((?:$qq_bracket)*?) (\]) /oxgc) {
                     my @s = ($1,$2,$3);
@@ -1478,7 +1526,7 @@ sub escape {
                         elsif (/\G (\$) ((?:$qq_char)*?)    (\$) ([cegimosxp]*) /oxgc) { return e_sub($sub_variable,@s,$1,$2,$3,$4); }
                         elsif (/\G (\S) ((?:$qq_char)*?)    (\1) ([cegimosxp]*) /oxgc) { return e_sub($sub_variable,@s,$1,$2,$3,$4); }
                     }
-                    croak "$__FILE__: Substitution replacement not terminated";
+                    die "$__FILE__: Substitution replacement not terminated";
                 }
                 elsif (/\G (\<) ((?:$qq_angle)*?) (\>) /oxgc) {
                     my @s = ($1,$2,$3);
@@ -1495,7 +1543,7 @@ sub escape {
                         elsif (/\G (\@) ((?:$qq_char)*?)    (\@) ([cegimosxp]*) /oxgc) { return e_sub($sub_variable,@s,$1,$2,$3,$4); }
                         elsif (/\G (\S) ((?:$qq_char)*?)    (\1) ([cegimosxp]*) /oxgc) { return e_sub($sub_variable,@s,$1,$2,$3,$4); }
                     }
-                    croak "$__FILE__: Substitution replacement not terminated";
+                    die "$__FILE__: Substitution replacement not terminated";
                 }
                 #           $1   $2               $3   $4               $5   $6
                 elsif (/\G (\') ((?:$qq_char)*?) (\') ((?:$qq_char)*?) (\') ([cegimosxp]*) /oxgc) {
@@ -1514,7 +1562,7 @@ sub escape {
                     return e_sub($sub_variable,$1,$2,$3,$3,$4,$5,$6);
                 }
             }
-            croak "$__FILE__: Substitution pattern not terminated";
+            die "$__FILE__: Substitution pattern not terminated";
         }
     }
 
@@ -1576,7 +1624,7 @@ sub escape {
             elsif (/\G \'        /oxgc)            { return e_q('', "'","'",$q_string); }
             elsif (/\G ($q_char) /oxgc)            { $q_string .= $1;                   }
         }
-        croak "$__FILE__: Can't find string terminator anywhere before EOF";
+        die "$__FILE__: Can't find string terminator anywhere before EOF";
     }
 
 # ""
@@ -1588,7 +1636,7 @@ sub escape {
             elsif (/\G \"        /oxgc)            { return e_qq('', '"','"',$qq_string); }
             elsif (/\G ($q_char) /oxgc)            { $qq_string .= $1;                    }
         }
-        croak "$__FILE__: Can't find string terminator anywhere before EOF";
+        die "$__FILE__: Can't find string terminator anywhere before EOF";
     }
 
 # ``
@@ -1600,7 +1648,7 @@ sub escape {
             elsif (/\G \`        /oxgc)            { return e_qq('', '`','`',$qx_string); }
             elsif (/\G ($q_char) /oxgc)            { $qx_string .= $1;                    }
         }
-        croak "$__FILE__: Can't find string terminator anywhere before EOF";
+        die "$__FILE__: Can't find string terminator anywhere before EOF";
     }
 
 # //   --- not divide operator (num / num), not defined-or
@@ -1612,7 +1660,7 @@ sub escape {
             elsif (/\G \/ ([cgimosxp]*) /oxgc)     { return e_qr('', '/','/',$regexp,$1); }
             elsif (/\G ($q_char)        /oxgc)     { $regexp .= $1;                       }
         }
-        croak "$__FILE__: Search pattern not terminated";
+        die "$__FILE__: Search pattern not terminated";
     }
 
 # ??   --- not conditional operator (condition ? then : else)
@@ -1624,7 +1672,7 @@ sub escape {
             elsif (/\G \? ([cgimosxp]*) /oxgc)     { return e_qr('', '?','?',$regexp,$1); }
             elsif (/\G ($q_char)        /oxgc)     { $regexp .= $1;                       }
         }
-        croak "$__FILE__: Search pattern not terminated";
+        die "$__FILE__: Search pattern not terminated";
     }
 
 # << (bit shift)   --- not here document
@@ -1646,7 +1694,7 @@ sub escape {
             push @heredoc_delimiter, $delimiter;
         }
         else {
-            croak "$__FILE__: Can't find string terminator $delimiter anywhere before EOF";
+            die "$__FILE__: Can't find string terminator $delimiter anywhere before EOF";
         }
         return $here_quote;
     }
@@ -1672,7 +1720,7 @@ sub escape {
             push @heredoc_delimiter, $delimiter;
         }
         else {
-            croak "$__FILE__: Can't find string terminator $delimiter anywhere before EOF";
+            die "$__FILE__: Can't find string terminator $delimiter anywhere before EOF";
         }
         return $here_quote;
     }
@@ -1693,7 +1741,7 @@ sub escape {
             push @heredoc_delimiter, $delimiter;
         }
         else {
-            croak "$__FILE__: Can't find string terminator $delimiter anywhere before EOF";
+            die "$__FILE__: Can't find string terminator $delimiter anywhere before EOF";
         }
         return $here_quote;
     }
@@ -1714,7 +1762,7 @@ sub escape {
             push @heredoc_delimiter, $delimiter;
         }
         else {
-            croak "$__FILE__: Can't find string terminator $delimiter anywhere before EOF";
+            die "$__FILE__: Can't find string terminator $delimiter anywhere before EOF";
         }
         return $here_quote;
     }
@@ -1735,7 +1783,7 @@ sub escape {
             push @heredoc_delimiter, $delimiter;
         }
         else {
-            croak "$__FILE__: Can't find string terminator $delimiter anywhere before EOF";
+            die "$__FILE__: Can't find string terminator $delimiter anywhere before EOF";
         }
         return $here_quote;
     }
@@ -1831,7 +1879,7 @@ sub escape {
 
     # system error
     else {
-        croak "$__FILE__: oops, this shouldn't happen!";
+        die "$__FILE__: oops, this shouldn't happen!";
     }
 }
 
@@ -2056,7 +2104,7 @@ E_STRING_LOOP:
                         elsif ($string =~ /\G ([*\-:?\\^|]) ((?:$qq_char)*?)    (\1) /oxgc) { $e_string .= e_split('qr','{','}',$2,''); next E_STRING_LOOP; } # qq | | --> qr { }
                         elsif ($string =~ /\G (\S)          ((?:$qq_char)*?)    (\1) /oxgc) { $e_string .= e_split('qr',$1,$3,$2,'');   next E_STRING_LOOP; } # qq * * --> qr * *
                     }
-                    croak "$__FILE__: Can't find string terminator anywhere before EOF";
+                    die "$__FILE__: Can't find string terminator anywhere before EOF";
                 }
             }
 
@@ -2074,7 +2122,7 @@ E_STRING_LOOP:
                         elsif ($string =~ /\G ([*\-:?\\^|]) ((?:$qq_char)*?)    (\1) ([imosxp]*) /oxgc) { $e_string .= e_split  ('qr','{','}',$2,$4); next E_STRING_LOOP; } # qr | | --> qr { }
                         elsif ($string =~ /\G (\S)          ((?:$qq_char)*?)    (\1) ([imosxp]*) /oxgc) { $e_string .= e_split  ('qr',$1, $3, $2,$4); next E_STRING_LOOP; } # qr * *
                     }
-                    croak "$__FILE__: Can't find string terminator anywhere before EOF";
+                    die "$__FILE__: Can't find string terminator anywhere before EOF";
                 }
             }
 
@@ -2091,7 +2139,7 @@ E_STRING_LOOP:
                         elsif ($string =~ /\G ([*\-:?\\^|])       ((?:$q_char)*?)    (\1) /oxgc) { $e_string .= e_split_q('qr','{','}',$2,''); next E_STRING_LOOP; } # q | | --> qr { }
                         elsif ($string =~ /\G (\S) ((?:\\\\|\\\1|     $q_char)*?)    (\1) /oxgc) { $e_string .= e_split_q('qr',$1,$3,$2,'');   next E_STRING_LOOP; } # q * * --> qr * *
                     }
-                    croak "$__FILE__: Can't find string terminator anywhere before EOF";
+                    die "$__FILE__: Can't find string terminator anywhere before EOF";
                 }
             }
 
@@ -2109,7 +2157,7 @@ E_STRING_LOOP:
                         elsif ($string =~ /\G ([*\-:?\\^|]) ((?:$qq_char)*?)    (\1) ([cgimosxp]*) /oxgc) { $e_string .= e_split  ('qr','{','}',$2,$4); next E_STRING_LOOP; } # m | | --> qr { }
                         elsif ($string =~ /\G (\S)          ((?:$qq_char)*?)    (\1) ([cgimosxp]*) /oxgc) { $e_string .= e_split  ('qr',$1, $3, $2,$4); next E_STRING_LOOP; } # m * * --> qr * *
                     }
-                    croak "$__FILE__: Search pattern not terminated";
+                    die "$__FILE__: Search pattern not terminated";
                 }
             }
 
@@ -2122,7 +2170,7 @@ E_STRING_LOOP:
                     elsif ($string =~ /\G \'        /oxgc)                      { $e_string .= e_split_q(q{ qr},"'","'",$q_string,''); next E_STRING_LOOP; } # ' ' --> qr ' '
                     elsif ($string =~ /\G ($q_char) /oxgc) { $q_string .= $1; }
                 }
-                croak "$__FILE__: Can't find string terminator anywhere before EOF";
+                die "$__FILE__: Can't find string terminator anywhere before EOF";
             }
 
 # split ""
@@ -2134,7 +2182,7 @@ E_STRING_LOOP:
                     elsif ($string =~ /\G \"        /oxgc)                       { $e_string .= e_split(q{ qr},'"','"',$qq_string,''); next E_STRING_LOOP; } # " " --> qr " "
                     elsif ($string =~ /\G ($q_char) /oxgc) { $qq_string .= $1; }
                 }
-                croak "$__FILE__: Can't find string terminator anywhere before EOF";
+                die "$__FILE__: Can't find string terminator anywhere before EOF";
             }
 
 # split //
@@ -2146,7 +2194,7 @@ E_STRING_LOOP:
                     elsif ($string =~ /\G \/ ([cgimosxp]*) /oxgc)                    { $e_string .= e_split(q{ qr}, '/','/',$regexp,$1); next E_STRING_LOOP; } # / / --> qr / /
                     elsif ($string =~ /\G ($q_char)        /oxgc) { $regexp .= $1; }
                 }
-                croak "$__FILE__: Search pattern not terminated";
+                die "$__FILE__: Search pattern not terminated";
             }
         }
 
@@ -2166,7 +2214,7 @@ E_STRING_LOOP:
                     elsif ($string =~ /\G (\<) ((?:$qq_angle)*?)   (\>) /oxgc) { $e_string .= $e . e_qq($ope,$1,$3,$2); next E_STRING_LOOP; } # qq < >
                     elsif ($string =~ /\G (\S) ((?:$qq_char)*?)    (\1) /oxgc) { $e_string .= $e . e_qq($ope,$1,$3,$2); next E_STRING_LOOP; } # qq * *
                 }
-                croak "$__FILE__: Can't find string terminator anywhere before EOF";
+                die "$__FILE__: Can't find string terminator anywhere before EOF";
             }
         }
 
@@ -2187,7 +2235,7 @@ E_STRING_LOOP:
                     elsif ($string =~ /\G (\') ((?:$qq_char)*?)    (\') /oxgc) { $e_string .= $e . e_q ($ope,$1,$3,$2); next E_STRING_LOOP; } # qx ' '
                     elsif ($string =~ /\G (\S) ((?:$qq_char)*?)    (\1) /oxgc) { $e_string .= $e . e_qq($ope,$1,$3,$2); next E_STRING_LOOP; } # qx * *
                 }
-                croak "$__FILE__: Can't find string terminator anywhere before EOF";
+                die "$__FILE__: Can't find string terminator anywhere before EOF";
             }
         }
 
@@ -2207,7 +2255,7 @@ E_STRING_LOOP:
                     elsif ($string =~ /\G (\<) ((?:\\\\|\\\>|\\\<|$q_angle)*?)   (\>) /oxgc) { $e_string .= $e . e_q($ope,$1,$3,$2); next E_STRING_LOOP; } # q < >
                     elsif ($string =~ /\G (\S) ((?:\\\\|\\\1|     $q_char)*?)    (\1) /oxgc) { $e_string .= $e . e_q($ope,$1,$3,$2); next E_STRING_LOOP; } # q * *
                 }
-                croak "$__FILE__: Can't find string terminator anywhere before EOF";
+                die "$__FILE__: Can't find string terminator anywhere before EOF";
             }
         }
 
@@ -2250,7 +2298,7 @@ E_STRING_LOOP:
                 push @heredoc_delimiter, $delimiter;
             }
             else {
-                croak "$__FILE__: Can't find string terminator $delimiter anywhere before EOF";
+                die "$__FILE__: Can't find string terminator $delimiter anywhere before EOF";
             }
             $e_string .= $here_quote;
         }
@@ -2271,7 +2319,7 @@ E_STRING_LOOP:
                 push @heredoc_delimiter, $delimiter;
             }
             else {
-                croak "$__FILE__: Can't find string terminator $delimiter anywhere before EOF";
+                die "$__FILE__: Can't find string terminator $delimiter anywhere before EOF";
             }
             $e_string .= $here_quote;
         }
@@ -2292,7 +2340,7 @@ E_STRING_LOOP:
                 push @heredoc_delimiter, $delimiter;
             }
             else {
-                croak "$__FILE__: Can't find string terminator $delimiter anywhere before EOF";
+                die "$__FILE__: Can't find string terminator $delimiter anywhere before EOF";
             }
             $e_string .= $here_quote;
         }
@@ -2313,7 +2361,7 @@ E_STRING_LOOP:
                 push @heredoc_delimiter, $delimiter;
             }
             else {
-                croak "$__FILE__: Can't find string terminator $delimiter anywhere before EOF";
+                die "$__FILE__: Can't find string terminator $delimiter anywhere before EOF";
             }
             $e_string .= $here_quote;
         }
@@ -2334,7 +2382,7 @@ E_STRING_LOOP:
                 push @heredoc_delimiter, $delimiter;
             }
             else {
-                croak "$__FILE__: Can't find string terminator $delimiter anywhere before EOF";
+                die "$__FILE__: Can't find string terminator $delimiter anywhere before EOF";
             }
             $e_string .= $here_quote;
         }
@@ -2380,7 +2428,7 @@ E_STRING_LOOP:
 
         # system error
         else {
-            croak "$__FILE__: oops, this shouldn't happen!";
+            die "$__FILE__: oops, this shouldn't happen!";
         }
     }
 
@@ -2855,7 +2903,7 @@ sub e_qr {
             my $left = $i;
             while (1) {
                 if (++$i > $#char) {
-                    croak "$__FILE__: unmatched [] in regexp";
+                    die "$__FILE__: unmatched [] in regexp";
                 }
                 if ($char[$i] eq ']') {
                     my $right = $i;
@@ -2874,7 +2922,7 @@ sub e_qr {
             my $left = $i;
             while (1) {
                 if (++$i > $#char) {
-                    croak "$__FILE__: unmatched [] in regexp";
+                    die "$__FILE__: unmatched [] in regexp";
                 }
                 if ($char[$i] eq ']') {
                     my $right = $i;
@@ -3016,9 +3064,9 @@ sub e_qr {
     # make regexp string
     $modifier =~ tr/i//d;
     if ($left_e > $right_e) {
-        return join '', $ope, $delimiter, "$your_gap(?:", @char, '>]}' x ($left_e - $right_e), ')(?{Ebig5plus::m_matched})', $end_delimiter, $modifier;
+        return join '', $ope, $delimiter, "$your_gap(?:", @char, '>]}' x ($left_e - $right_e), ')', $m_matched, $end_delimiter, $modifier;
     }
-    return     join '', $ope, $delimiter, "$your_gap(?:", @char,                               ')(?{Ebig5plus::m_matched})', $end_delimiter, $modifier;
+    return     join '', $ope, $delimiter, "$your_gap(?:", @char,                               ')', $m_matched, $end_delimiter, $modifier;
 }
 
 #
@@ -3037,6 +3085,7 @@ sub e_qr_q {
         \[\:\^ [a-z]+ \:\] |
         \[\:   [a-z]+ \:\] |
         \[\^               |
+        [$@/\\]            |
         \\?    (?:$q_char)
     )}oxmsg;
 
@@ -3055,7 +3104,7 @@ sub e_qr_q {
             my $left = $i;
             while (1) {
                 if (++$i > $#char) {
-                    croak "$__FILE__: unmatched [] in regexp";
+                    die "$__FILE__: unmatched [] in regexp";
                 }
                 if ($char[$i] eq ']') {
                     my $right = $i;
@@ -3074,7 +3123,7 @@ sub e_qr_q {
             my $left = $i;
             while (1) {
                 if (++$i > $#char) {
-                    croak "$__FILE__: unmatched [] in regexp";
+                    die "$__FILE__: unmatched [] in regexp";
                 }
                 if ($char[$i] eq ']') {
                     my $right = $i;
@@ -3086,6 +3135,11 @@ sub e_qr_q {
                     last;
                 }
             }
+        }
+
+        # escape $ @ / and \
+        elsif ($char[$i] =~ m{\A ([$@/\\]) \z}oxms) {
+            $char[$i] = '\\' . $1;
         }
 
         # rewrite character class or escape character
@@ -3109,7 +3163,9 @@ sub e_qr_q {
     }
 
     $modifier =~ tr/i//d;
-    return join '', $ope, $delimiter, "$your_gap(?:", @char, ')(?{Ebig5plus::m_matched})', $end_delimiter, $modifier;
+    $delimiter     = '/';
+    $end_delimiter = '/';
+    return join '', $ope, $delimiter, "$your_gap(?:", @char, ')', $m_matched, $end_delimiter, $modifier;
 }
 
 #
@@ -3180,7 +3236,7 @@ sub e_s1 {
             my $left = $i;
             while (1) {
                 if (++$i > $#char) {
-                    croak "$__FILE__: unmatched [] in regexp";
+                    die "$__FILE__: unmatched [] in regexp";
                 }
                 if ($char[$i] eq ']') {
                     my $right = $i;
@@ -3199,7 +3255,7 @@ sub e_s1 {
             my $left = $i;
             while (1) {
                 if (++$i > $#char) {
-                    croak "$__FILE__: unmatched [] in regexp";
+                    die "$__FILE__: unmatched [] in regexp";
                 }
                 if ($char[$i] eq ']') {
                     my $right = $i;
@@ -3376,9 +3432,9 @@ sub e_s1 {
     # make regexp string
     $modifier =~ tr/i//d;
     if ($left_e > $right_e) {
-        return join '', $ope, $delimiter, "($your_gap)(?:", @char, '>]}' x ($left_e - $right_e), ')(?{Ebig5plus::s_matched})', $end_delimiter, $modifier;
+        return join '', $ope, $delimiter, "($your_gap)(?:", @char, '>]}' x ($left_e - $right_e), ')', $s_matched, $end_delimiter, $modifier;
     }
-    return     join '', $ope, $delimiter, "($your_gap)(?:", @char,                               ')(?{Ebig5plus::s_matched})', $end_delimiter, $modifier;
+    return     join '', $ope, $delimiter, "($your_gap)(?:", @char,                               ')', $s_matched, $end_delimiter, $modifier;
 }
 
 #
@@ -3397,6 +3453,7 @@ sub e_s1_q {
         \[\:\^ [a-z]+ \:\] |
         \[\:   [a-z]+ \:\] |
         \[\^               |
+        [$@/\\]            |
         \\?    (?:$q_char)
     )}oxmsg;
 
@@ -3415,7 +3472,7 @@ sub e_s1_q {
             my $left = $i;
             while (1) {
                 if (++$i > $#char) {
-                    croak "$__FILE__: unmatched [] in regexp";
+                    die "$__FILE__: unmatched [] in regexp";
                 }
                 if ($char[$i] eq ']') {
                     my $right = $i;
@@ -3434,7 +3491,7 @@ sub e_s1_q {
             my $left = $i;
             while (1) {
                 if (++$i > $#char) {
-                    croak "$__FILE__: unmatched [] in regexp";
+                    die "$__FILE__: unmatched [] in regexp";
                 }
                 if ($char[$i] eq ']') {
                     my $right = $i;
@@ -3446,6 +3503,11 @@ sub e_s1_q {
                     last;
                 }
             }
+        }
+
+        # escape $ @ / and \
+        elsif ($char[$i] =~ m{\A ([$@/\\]) \z}oxms) {
+            $char[$i] = '\\' . $1;
         }
 
         # rewrite character class or escape character
@@ -3469,7 +3531,41 @@ sub e_s1_q {
     }
 
     $modifier =~ tr/i//d;
-    return join '', $ope, $delimiter, "($your_gap)(?:", @char, ')(?{Ebig5plus::s_matched})', $end_delimiter, $modifier;
+    $delimiter     = '/';
+    $end_delimiter = '/';
+    return join '', $ope, $delimiter, "($your_gap)(?:", @char, ')', $s_matched, $end_delimiter, $modifier;
+}
+
+#
+# escape regexp (s''here')
+#
+sub e_s2_q {
+    my($ope,$delimiter,$end_delimiter,$string) = @_;
+
+    $slash = 'div';
+
+    my @char = $string =~ m/ \G ([$@\/\\]|$q_char) /oxmsg;
+    for (my $i=0; $i <= $#char; $i++) {
+
+        # escape last octet of multiple octet
+        if ($char[$i] =~ m/\A ([\x80-\xFF].*) (\Q$delimiter\E|\Q$end_delimiter\E) \z/xms) {
+            $char[$i] = $1 . '\\' . $2;
+        }
+        elsif (($char[$i] =~ m/\A ([\x80-\xFF].*) (\\) \z/xms) and defined($char[$i+1]) and ($char[$i+1] eq '\\')) {
+            $char[$i] = $1 . '\\' . $2;
+        }
+
+        # escape $ @ / and \
+        elsif ($char[$i] =~ m{\A ([$@/\\]) \z}oxms) {
+            $char[$i] = '\\' . $1;
+        }
+    }
+    if (defined($char[-1]) and ($char[-1] =~ m/\A ([\x80-\xFF].*) (\\) \z/xms)) {
+        $char[-1] = $1 . '\\' . $2;
+    }
+
+    return join '', $ope, $delimiter, @char,   $end_delimiter;
+    return join '', $ope, $delimiter, $string, $end_delimiter;
 }
 
 #
@@ -3507,10 +3603,10 @@ sub e_sub {
     # quote replacement string
     my $q_replacement = '';
     if ($delimiter2 eq "'") {
-        $q_replacement = e_q ('',   "'",         "'",             $replacement);
+        $q_replacement = e_s2_q('qq', '/',         '/',             $replacement);
     }
     else {
-        $q_replacement = e_qq('qq', $delimiter2, $end_delimiter2, $replacement);
+        $q_replacement = e_qq  ('qq', $delimiter2, $end_delimiter2, $replacement);
     }
 
     # escape replacement string
@@ -3665,7 +3761,7 @@ sub e_split {
             my $left = $i;
             while (1) {
                 if (++$i > $#char) {
-                    croak "$__FILE__: unmatched [] in regexp";
+                    die "$__FILE__: unmatched [] in regexp";
                 }
                 if ($char[$i] eq ']') {
                     my $right = $i;
@@ -3684,7 +3780,7 @@ sub e_split {
             my $left = $i;
             while (1) {
                 if (++$i > $#char) {
-                    croak "$__FILE__: unmatched [] in regexp";
+                    die "$__FILE__: unmatched [] in regexp";
                 }
                 if ($char[$i] eq ']') {
                     my $right = $i;
@@ -3877,7 +3973,7 @@ sub e_split_q {
             my $left = $i;
             while (1) {
                 if (++$i > $#char) {
-                    croak "$__FILE__: unmatched [] in regexp";
+                    die "$__FILE__: unmatched [] in regexp";
                 }
                 if ($char[$i] eq ']') {
                     my $right = $i;
@@ -3896,7 +3992,7 @@ sub e_split_q {
             my $left = $i;
             while (1) {
                 if (++$i > $#char) {
-                    croak "$__FILE__: unmatched [] in regexp";
+                    die "$__FILE__: unmatched [] in regexp";
                 }
                 if ($char[$i] eq ']') {
                     my $right = $i;
@@ -3969,7 +4065,7 @@ sub e_use_noimport {
         if (sysopen($fh, $realfilename, O_RDONLY)) {
             local $/ = undef; # slurp mode
             my $script = <$fh>;
-            close($fh) or croak "Can't close file: $realfilename";
+            close($fh) or die "Can't close file: $realfilename";
 
             if ($script =~ m/^ \s* use \s+ Big5Plus \s* ([^;]*) ; \s* \n? $/oxms) {
                 return qq<BEGIN { Ebig5plus::require '$expr'; }>;
@@ -3998,7 +4094,7 @@ sub e_use_noparam {
         if (sysopen($fh, $realfilename, O_RDONLY)) {
             local $/ = undef; # slurp mode
             my $script = <$fh>;
-            close($fh) or croak "Can't close file: $realfilename";
+            close($fh) or die "Can't close file: $realfilename";
 
             if ($script =~ m/^ \s* use \s+ Big5Plus \s* ([^;]*) ; \s* \n? $/oxms) {
 
@@ -4033,7 +4129,7 @@ sub e_use {
         if (sysopen($fh, $realfilename, O_RDONLY)) {
             local $/ = undef; # slurp mode
             my $script = <$fh>;
-            close($fh) or croak "Can't close file: $realfilename";
+            close($fh) or die "Can't close file: $realfilename";
 
             if ($script =~ m/^ \s* use \s+ Big5Plus \s* ([^;]*) ; \s* \n? $/oxms) {
                 return qq[BEGIN { Ebig5plus::require '$expr'; $module->import($list) if $module->can('import'); }];
@@ -4128,7 +4224,7 @@ What's this software good for ...
 
 =item * Possible to re-use past data, past code and how to
 
-=item * No UTF8 flag
+=item * No UTF8 flag, perlunitut, perluniadvice
 
 =item * But Perl5 compatible
 
@@ -4433,6 +4529,19 @@ It means not compatible with JPerl.
 
 =back
 
+=head1 ENVIRONMENT VARIABLE
+
+ This software uses the flock function for exclusive control. The execution of the
+ program is blocked until it becomes possible to read or write the file.
+ You can have it not block in the flock function by defining environment variable
+ SJIS_NONBLOCK.
+ 
+ Example:
+ 
+   SET SJIS_NONBLOCK=1
+ 
+ (The value '1' doesn't have the meaning)
+
 =head1 BUGS AND LIMITATIONS
 
 Please patches and report problems to author are welcome.
@@ -4443,6 +4552,11 @@ Please patches and report problems to author are welcome.
 
 Function "format" can't handle multiple octet code same as original Perl.
 
+=item * /o modifier of m/$re/o, s/$re/foo/o and qr/$re/o
+
+/o modifier doesn't do operation the same as the expectation on perl5.6.1.
+The latest value of variable $re is used as a regular expression.
+
 =item * chdir
 
 Function "chdir" can't change directory chr(0x5C) ended path on perl5.006, perl5.008
@@ -4452,11 +4566,6 @@ see also,
 Bug #81839
 chdir does not work with chr(0x5C) at end of path
 http://bugs.activestate.com/show_bug.cgi?id=81839
-
-=item * /o modifier of m/$re/o, s/$re/foo/o and qr/$re/o
-
-/o modifier doesn't do operation the same as the expectation on perl5.6.1.
-The latest value of variable $re is used as a regular expression.
 
 =item * Escape character \b and \B
 
@@ -4697,6 +4806,17 @@ programming environment like at that time.
  Pages: 172
  T1008901080816 ZASSHI 08901-8
  http://ascii.asciimw.jp/books/magazines/unix.shtml
+ 
+ Yet Another JPerl family
+ http://search.cpan.org/dist/Big5Plus/
+ http://search.cpan.org/dist/EUCJP/
+ http://search.cpan.org/dist/GB18030/
+ http://search.cpan.org/dist/HP15/
+ http://search.cpan.org/dist/INFORMIXV6ALS/
+ http://search.cpan.org/dist/Big5Plus/
+ http://search.cpan.org/dist/UHC/
+ http://search.cpan.org/dist/UTF2/
+ http://search.cpan.org/dist/jacode/
 
 =head1 ACKNOWLEDGEMENTS
 
@@ -4726,6 +4846,9 @@ I am thankful to all persons.
  jscripter, For jperl users
  http://homepage1.nifty.com/kazuf/jperl.html
 
+ Bruce., Unicode in Perl
+ http://www.rakunet.org/TSNET/TSabc/18/546.html
+
  Hiroaki Izumi, Perl5.8/Perl5.10 is not useful on the Windows.
  http://www.aritia.org/hizumi/perl/perlwin.html
 
@@ -4744,6 +4867,9 @@ I am thankful to all persons.
 
  Dan Kogai, Encode module
  http://search.cpan.org/dist/Encode/
+
+ Juerd, Perl Unicode Advice
+ http://juerd.nl/site.plp/perluniadvice
 
  Tokyo-pm archive
  http://mail.pm.org/pipermail/tokyo-pm/

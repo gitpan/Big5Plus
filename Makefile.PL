@@ -1,4 +1,6 @@
 use strict;
+select((select(STDOUT), $|=1)[0]);
+select((select(STDERR), $|=1)[0]);
 use Fcntl;
 use Symbol;
 
