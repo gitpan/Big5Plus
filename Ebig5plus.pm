@@ -9,17 +9,67 @@ package Ebig5plus;
 #
 ######################################################################
 
-BEGIN {
-    eval { require 'strict.pm';   'strict'  ->import; };
-#   eval { require 'warnings.pm'; 'warnings'->import; };
-}
 use 5.00503;
+
+# 12.3. Delaying use Until Runtime
+# in Chapter 12. Packages, Libraries, and Modules
+# of ISBN 0-596-00313-7 Perl Cookbook, 2nd Edition.
+# (and so on)
+
 BEGIN { eval q{ use vars qw($VERSION $_warning) } }
 
-$VERSION = sprintf '%d.%02d', q$Revision: 0.51 $ =~ m/(\d+)/xmsg;
+$VERSION = sprintf '%d.%02d', q$Revision: 0.52 $ =~ m/(\d+)/xmsg;
 
-use Fcntl;
-use Symbol;
+# poor Symbol.pm - substitute of real Symbol.pm
+BEGIN {
+    my $genpkg = "Symbol::";
+    my $genseq = 0;
+
+    sub gensym () {
+        my $name = "GEN" . $genseq++;
+        my $ref = \*{$genpkg . $name};
+        delete $$genpkg{$name};
+        $ref;
+    }
+
+    sub qualify ($;$) {
+        my ($name) = @_;
+        if (!ref($name) && (Ebig5plus::index($name, '::') == -1) && (Ebig5plus::index($name, "'") == -1)) {
+            my $pkg;
+            my %global = map {$_ => 1} qw(ARGV ARGVOUT ENV INC SIG STDERR STDIN STDOUT);
+
+            # Global names: special character, "^xyz", or other.
+            if ($name =~ /^(([^a-z])|(\^[a-z_]+))\z/i || $global{$name}) {
+                # RGS 2001-11-05 : translate leading ^X to control-char
+                $name =~ s/^\^([a-z_])/'qq(\c'.$1.')'/eei;
+                $pkg = "main";
+            }
+            else {
+                $pkg = (@_ > 1) ? $_[1] : caller;
+            }
+            $name = $pkg . "::" . $name;
+        }
+        $name;
+    }
+
+    sub qualify_to_ref ($;$) {
+        return \*{ qualify $_[0], @_ > 1 ? $_[1] : caller };
+    }
+}
+
+BEGIN {
+    eval { require strict;   'strict'  ->import; };
+#   eval { require warnings; 'warnings'->import; };
+}
+
+# P.714 29.2.39. flock
+# in Chapter 29: Functions
+# of ISBN 0-596-00027-8 Programming Perl Third Edition.
+
+sub LOCK_SH() {1}
+sub LOCK_EX() {2}
+sub LOCK_UN() {8}
+sub LOCK_NB() {4}
 
 # instead of Carp.pm
 sub carp (@);
@@ -387,6 +437,10 @@ sub Ebig5plus::split(;$$$) {
         if ((not defined $pattern) or ($pattern eq ' ')) {
             $string =~ s/ \A \s+ //oxms;
 
+            # P.1024 Appendix W.10 Multibyte Processing
+            # of ISBN 1-56592-224-7 CJKV Information Processing
+            # (and so on)
+
             # the //m modifier is assumed when you split on the pattern /^/
             # (and so on)
 
@@ -687,6 +741,10 @@ sub Ebig5plus::rindex($$;$) {
 # Big5Plus regexp capture
 #
 {
+    # 10.3. Creating Persistent Private Variables
+    # in Chapter 10. Subroutines
+    # of ISBN 0-596-00313-7 Perl Cookbook, 2nd Edition.
+
     my $last_s_matched = 0;
 
     sub Ebig5plus::capture($) {
@@ -708,15 +766,14 @@ sub Ebig5plus::rindex($$;$) {
         $last_s_matched = 1;
     }
 
-    # which operator matched at last
+    # which matched of m// or s/// at last
 
-    # $m_matched = qr'(?{$last_s_matched=0})';
-    # $s_matched = qr'(?{$last_s_matched=1})';
+    # P.854 31.17. use re
+    # in Chapter 31. Pragmatic Modules
+    # of ISBN 0-596-00027-8 Programming Perl Third Edition.
 
-    # following methods use neither '$' nor '=' in regrxp
-    BEGIN { eval q{ use vars qw($m_matched $s_matched) } }
-    $m_matched = qr'(?{Ebig5plus::m_matched})';
-    $s_matched = qr'(?{Ebig5plus::s_matched})';
+    @Ebig5plus::m_matched = (qr/(?{Ebig5plus::m_matched})/);
+    @Ebig5plus::s_matched = (qr/(?{Ebig5plus::s_matched})/);
 }
 
 #
@@ -812,6 +869,12 @@ sub Ebig5plus::ignorecase(@) {
                 '\d' => '[0-9]',
                 '\s' => '[\x09\x0A\x0C\x0D\x20]',
                 '\w' => '[0-9A-Z_a-z]',
+
+                # \h \v \H \V
+                #
+                # P.114 Character Class Shortcuts
+                # in Chapter 7: In the World of Regular Expressions
+                # of ISBN 978-0-596-52010-6 Learning Perl, Fifth Edition
 
                 '\H' => '(?:[\x81-\xFE][\x00-\xFF]|[^\x09\x20])',
                 '\V' => '(?:[\x81-\xFE][\x00-\xFF]|[^\x0C\x0A\x0D])',
@@ -1469,7 +1532,7 @@ sub Ebig5plus::r(;*@) {
     # of ISBN 0-596-00027-8 Programming Perl Third Edition.
     # (and so on)
 
-    elsif (fileno(my $fh = Symbol::qualify_to_ref $_)) {
+    elsif (fileno(my $fh = qualify_to_ref $_)) {
         return wantarray ? (-r $fh,@_) : -r $fh;
     }
     elsif (-e $_) {
@@ -1480,8 +1543,8 @@ sub Ebig5plus::r(;*@) {
             return wantarray ? (-r _,@_) : -r _;
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $r = -r $fh;
                 close $fh;
                 return wantarray ? ($r,@_) : $r;
@@ -1502,7 +1565,7 @@ sub Ebig5plus::w(;*@) {
     if ($_ eq '_') {
         return wantarray ? (-w _,@_) : -w _;
     }
-    elsif (fileno(my $fh = Symbol::qualify_to_ref $_)) {
+    elsif (fileno(my $fh = qualify_to_ref $_)) {
         return wantarray ? (-w $fh,@_) : -w $fh;
     }
     elsif (-e $_) {
@@ -1513,8 +1576,8 @@ sub Ebig5plus::w(;*@) {
             return wantarray ? (-w _,@_) : -w _;
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_WRONLY|O_APPEND) {
+            my $fh = gensym();
+            if (open $fh, ">>$_") {
                 my $w = -w $fh;
                 close $fh;
                 return wantarray ? ($w,@_) : $w;
@@ -1535,7 +1598,7 @@ sub Ebig5plus::x(;*@) {
     if ($_ eq '_') {
         return wantarray ? (-x _,@_) : -x _;
     }
-    elsif (fileno(my $fh = Symbol::qualify_to_ref $_)) {
+    elsif (fileno(my $fh = qualify_to_ref $_)) {
         return wantarray ? (-x $fh,@_) : -x $fh;
     }
     elsif (-e $_) {
@@ -1546,8 +1609,8 @@ sub Ebig5plus::x(;*@) {
             return wantarray ? (-x _,@_) : -x _;
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $dummy_for_underline_cache = -x $fh;
                 close $fh;
             }
@@ -1570,7 +1633,7 @@ sub Ebig5plus::o(;*@) {
     if ($_ eq '_') {
         return wantarray ? (-o _,@_) : -o _;
     }
-    elsif (fileno(my $fh = Symbol::qualify_to_ref $_)) {
+    elsif (fileno(my $fh = qualify_to_ref $_)) {
         return wantarray ? (-o $fh,@_) : -o $fh;
     }
     elsif (-e $_) {
@@ -1581,8 +1644,8 @@ sub Ebig5plus::o(;*@) {
             return wantarray ? (-o _,@_) : -o _;
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $o = -o $fh;
                 close $fh;
                 return wantarray ? ($o,@_) : $o;
@@ -1603,7 +1666,7 @@ sub Ebig5plus::R(;*@) {
     if ($_ eq '_') {
         return wantarray ? (-R _,@_) : -R _;
     }
-    elsif (fileno(my $fh = Symbol::qualify_to_ref $_)) {
+    elsif (fileno(my $fh = qualify_to_ref $_)) {
         return wantarray ? (-R $fh,@_) : -R $fh;
     }
     elsif (-e $_) {
@@ -1614,8 +1677,8 @@ sub Ebig5plus::R(;*@) {
             return wantarray ? (-R _,@_) : -R _;
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $R = -R $fh;
                 close $fh;
                 return wantarray ? ($R,@_) : $R;
@@ -1636,7 +1699,7 @@ sub Ebig5plus::W(;*@) {
     if ($_ eq '_') {
         return wantarray ? (-W _,@_) : -W _;
     }
-    elsif (fileno(my $fh = Symbol::qualify_to_ref $_)) {
+    elsif (fileno(my $fh = qualify_to_ref $_)) {
         return wantarray ? (-W $fh,@_) : -W $fh;
     }
     elsif (-e $_) {
@@ -1647,8 +1710,8 @@ sub Ebig5plus::W(;*@) {
             return wantarray ? (-W _,@_) : -W _;
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_WRONLY|O_APPEND) {
+            my $fh = gensym();
+            if (open $fh, ">>$_") {
                 my $W = -W $fh;
                 close $fh;
                 return wantarray ? ($W,@_) : $W;
@@ -1669,7 +1732,7 @@ sub Ebig5plus::X(;*@) {
     if ($_ eq '_') {
         return wantarray ? (-X _,@_) : -X _;
     }
-    elsif (fileno(my $fh = Symbol::qualify_to_ref $_)) {
+    elsif (fileno(my $fh = qualify_to_ref $_)) {
         return wantarray ? (-X $fh,@_) : -X $fh;
     }
     elsif (-e $_) {
@@ -1680,8 +1743,8 @@ sub Ebig5plus::X(;*@) {
             return wantarray ? (-X _,@_) : -X _;
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $dummy_for_underline_cache = -X $fh;
                 close $fh;
             }
@@ -1704,7 +1767,7 @@ sub Ebig5plus::O(;*@) {
     if ($_ eq '_') {
         return wantarray ? (-O _,@_) : -O _;
     }
-    elsif (fileno(my $fh = Symbol::qualify_to_ref $_)) {
+    elsif (fileno(my $fh = qualify_to_ref $_)) {
         return wantarray ? (-O $fh,@_) : -O $fh;
     }
     elsif (-e $_) {
@@ -1715,8 +1778,8 @@ sub Ebig5plus::O(;*@) {
             return wantarray ? (-O _,@_) : -O _;
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $O = -O $fh;
                 close $fh;
                 return wantarray ? ($O,@_) : $O;
@@ -1736,7 +1799,7 @@ sub Ebig5plus::e(;*@) {
 
     local $^W = 0;
 
-    my $fh = Symbol::qualify_to_ref $_;
+    my $fh = qualify_to_ref $_;
     if ($_ eq '_') {
         return wantarray ? (-e _,@_) : -e _;
     }
@@ -1759,8 +1822,8 @@ sub Ebig5plus::e(;*@) {
             return wantarray ? (1,@_) : 1;
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $e = -e $fh;
                 close $fh;
                 return wantarray ? ($e,@_) : $e;
@@ -1781,7 +1844,7 @@ sub Ebig5plus::z(;*@) {
     if ($_ eq '_') {
         return wantarray ? (-z _,@_) : -z _;
     }
-    elsif (fileno(my $fh = Symbol::qualify_to_ref $_)) {
+    elsif (fileno(my $fh = qualify_to_ref $_)) {
         return wantarray ? (-z $fh,@_) : -z $fh;
     }
     elsif (-e $_) {
@@ -1792,8 +1855,8 @@ sub Ebig5plus::z(;*@) {
             return wantarray ? (-z _,@_) : -z _;
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $z = -z $fh;
                 close $fh;
                 return wantarray ? ($z,@_) : $z;
@@ -1814,7 +1877,7 @@ sub Ebig5plus::s(;*@) {
     if ($_ eq '_') {
         return wantarray ? (-s _,@_) : -s _;
     }
-    elsif (fileno(my $fh = Symbol::qualify_to_ref $_)) {
+    elsif (fileno(my $fh = qualify_to_ref $_)) {
         return wantarray ? (-s $fh,@_) : -s $fh;
     }
     elsif (-e $_) {
@@ -1825,8 +1888,8 @@ sub Ebig5plus::s(;*@) {
             return wantarray ? (-s _,@_) : -s _;
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $s = -s $fh;
                 close $fh;
                 return wantarray ? ($s,@_) : $s;
@@ -1847,7 +1910,7 @@ sub Ebig5plus::f(;*@) {
     if ($_ eq '_') {
         return wantarray ? (-f _,@_) : -f _;
     }
-    elsif (fileno(my $fh = Symbol::qualify_to_ref $_)) {
+    elsif (fileno(my $fh = qualify_to_ref $_)) {
         return wantarray ? (-f $fh,@_) : -f $fh;
     }
     elsif (-e $_) {
@@ -1858,8 +1921,8 @@ sub Ebig5plus::f(;*@) {
             return wantarray ? ('',@_) : '';
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $f = -f $fh;
                 close $fh;
                 return wantarray ? ($f,@_) : $f;
@@ -1882,7 +1945,7 @@ sub Ebig5plus::d(;*@) {
     }
 
     # return false if file handle or directory handle
-    elsif (fileno(my $fh = Symbol::qualify_to_ref $_)) {
+    elsif (fileno(my $fh = qualify_to_ref $_)) {
         return wantarray ? ('',@_) : '';
     }
     elsif (-e $_) {
@@ -1905,7 +1968,7 @@ sub Ebig5plus::l(;*@) {
     if ($_ eq '_') {
         return wantarray ? (-l _,@_) : -l _;
     }
-    elsif (fileno(my $fh = Symbol::qualify_to_ref $_)) {
+    elsif (fileno(my $fh = qualify_to_ref $_)) {
         return wantarray ? (-l $fh,@_) : -l $fh;
     }
     elsif (-e $_) {
@@ -1916,8 +1979,8 @@ sub Ebig5plus::l(;*@) {
             return wantarray ? (-l _,@_) : -l _;
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $l = -l $fh;
                 close $fh;
                 return wantarray ? ($l,@_) : $l;
@@ -1938,7 +2001,7 @@ sub Ebig5plus::p(;*@) {
     if ($_ eq '_') {
         return wantarray ? (-p _,@_) : -p _;
     }
-    elsif (fileno(my $fh = Symbol::qualify_to_ref $_)) {
+    elsif (fileno(my $fh = qualify_to_ref $_)) {
         return wantarray ? (-p $fh,@_) : -p $fh;
     }
     elsif (-e $_) {
@@ -1949,8 +2012,8 @@ sub Ebig5plus::p(;*@) {
             return wantarray ? (-p _,@_) : -p _;
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $p = -p $fh;
                 close $fh;
                 return wantarray ? ($p,@_) : $p;
@@ -1971,7 +2034,7 @@ sub Ebig5plus::S(;*@) {
     if ($_ eq '_') {
         return wantarray ? (-S _,@_) : -S _;
     }
-    elsif (fileno(my $fh = Symbol::qualify_to_ref $_)) {
+    elsif (fileno(my $fh = qualify_to_ref $_)) {
         return wantarray ? (-S $fh,@_) : -S $fh;
     }
     elsif (-e $_) {
@@ -1982,8 +2045,8 @@ sub Ebig5plus::S(;*@) {
             return wantarray ? (-S _,@_) : -S _;
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $S = -S $fh;
                 close $fh;
                 return wantarray ? ($S,@_) : $S;
@@ -2004,7 +2067,7 @@ sub Ebig5plus::b(;*@) {
     if ($_ eq '_') {
         return wantarray ? (-b _,@_) : -b _;
     }
-    elsif (fileno(my $fh = Symbol::qualify_to_ref $_)) {
+    elsif (fileno(my $fh = qualify_to_ref $_)) {
         return wantarray ? (-b $fh,@_) : -b $fh;
     }
     elsif (-e $_) {
@@ -2015,8 +2078,8 @@ sub Ebig5plus::b(;*@) {
             return wantarray ? (-b _,@_) : -b _;
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $b = -b $fh;
                 close $fh;
                 return wantarray ? ($b,@_) : $b;
@@ -2037,7 +2100,7 @@ sub Ebig5plus::c(;*@) {
     if ($_ eq '_') {
         return wantarray ? (-c _,@_) : -c _;
     }
-    elsif (fileno(my $fh = Symbol::qualify_to_ref $_)) {
+    elsif (fileno(my $fh = qualify_to_ref $_)) {
         return wantarray ? (-c $fh,@_) : -c $fh;
     }
     elsif (-e $_) {
@@ -2048,8 +2111,8 @@ sub Ebig5plus::c(;*@) {
             return wantarray ? (-c _,@_) : -c _;
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $c = -c $fh;
                 close $fh;
                 return wantarray ? ($c,@_) : $c;
@@ -2070,7 +2133,7 @@ sub Ebig5plus::t(;*@) {
     if ($_ eq '_') {
         return wantarray ? (-t _,@_) : -t _;
     }
-    elsif (fileno(my $fh = Symbol::qualify_to_ref $_)) {
+    elsif (fileno(my $fh = qualify_to_ref $_)) {
         return wantarray ? (-t $fh,@_) : -t $fh;
     }
     elsif (-e $_) {
@@ -2081,8 +2144,8 @@ sub Ebig5plus::t(;*@) {
             return wantarray ? ('',@_) : '';
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 close $fh;
                 my $t = -t $fh;
                 return wantarray ? ($t,@_) : $t;
@@ -2103,7 +2166,7 @@ sub Ebig5plus::u(;*@) {
     if ($_ eq '_') {
         return wantarray ? (-u _,@_) : -u _;
     }
-    elsif (fileno(my $fh = Symbol::qualify_to_ref $_)) {
+    elsif (fileno(my $fh = qualify_to_ref $_)) {
         return wantarray ? (-u $fh,@_) : -u $fh;
     }
     elsif (-e $_) {
@@ -2114,8 +2177,8 @@ sub Ebig5plus::u(;*@) {
             return wantarray ? (-u _,@_) : -u _;
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $u = -u $fh;
                 close $fh;
                 return wantarray ? ($u,@_) : $u;
@@ -2136,7 +2199,7 @@ sub Ebig5plus::g(;*@) {
     if ($_ eq '_') {
         return wantarray ? (-g _,@_) : -g _;
     }
-    elsif (fileno(my $fh = Symbol::qualify_to_ref $_)) {
+    elsif (fileno(my $fh = qualify_to_ref $_)) {
         return wantarray ? (-g $fh,@_) : -g $fh;
     }
     elsif (-e $_) {
@@ -2147,8 +2210,8 @@ sub Ebig5plus::g(;*@) {
             return wantarray ? (-g _,@_) : -g _;
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $g = -g $fh;
                 close $fh;
                 return wantarray ? ($g,@_) : $g;
@@ -2169,7 +2232,7 @@ sub Ebig5plus::k(;*@) {
     if ($_ eq '_') {
         return wantarray ? (-k _,@_) : -k _;
     }
-    elsif (fileno(my $fh = Symbol::qualify_to_ref $_)) {
+    elsif (fileno(my $fh = qualify_to_ref $_)) {
         return wantarray ? (-k $fh,@_) : -k $fh;
     }
     elsif (-e $_) {
@@ -2180,8 +2243,8 @@ sub Ebig5plus::k(;*@) {
             return wantarray ? (-k _,@_) : -k _;
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $k = -k $fh;
                 close $fh;
                 return wantarray ? ($k,@_) : $k;
@@ -2200,7 +2263,7 @@ sub Ebig5plus::T(;*@) {
     croak 'Too many arguments for -T (Ebig5plus::T)' if @_ and not wantarray;
     my $T = 1;
 
-    my $fh = Symbol::qualify_to_ref $_;
+    my $fh = qualify_to_ref $_;
     if (fileno $fh) {
 
         if (defined Ebig5plus::telldir($fh)) {
@@ -2240,8 +2303,8 @@ sub Ebig5plus::T(;*@) {
             return wantarray ? (undef,@_) : undef;
         }
 
-        $fh = Symbol::gensym();
-        unless (sysopen $fh, $_, O_RDONLY) {
+        $fh = gensym();
+        unless (open $fh, $_) {
             return wantarray ? (undef,@_) : undef;
         }
         if (sysread $fh, my $block, 512) {
@@ -2273,7 +2336,7 @@ sub Ebig5plus::B(;*@) {
     croak 'Too many arguments for -B (Ebig5plus::B)' if @_ and not wantarray;
     my $B = '';
 
-    my $fh = Symbol::qualify_to_ref $_;
+    my $fh = qualify_to_ref $_;
     if (fileno $fh) {
 
         if (defined Ebig5plus::telldir($fh)) {
@@ -2303,8 +2366,8 @@ sub Ebig5plus::B(;*@) {
             return wantarray ? (undef,@_) : undef;
         }
 
-        $fh = Symbol::gensym();
-        unless (sysopen $fh, $_, O_RDONLY) {
+        $fh = gensym();
+        unless (open $fh, $_) {
             return wantarray ? (undef,@_) : undef;
         }
         if (sysread $fh, my $block, 512) {
@@ -2338,7 +2401,7 @@ sub Ebig5plus::M(;*@) {
     if ($_ eq '_') {
         return wantarray ? (-M _,@_) : -M _;
     }
-    elsif (fileno(my $fh = Symbol::qualify_to_ref $_)) {
+    elsif (fileno(my $fh = qualify_to_ref $_)) {
         return wantarray ? (-M $fh,@_) : -M $fh;
     }
     elsif (-e $_) {
@@ -2349,8 +2412,8 @@ sub Ebig5plus::M(;*@) {
             return wantarray ? (-M _,@_) : -M _;
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,$atime,$mtime,$ctime,$blksize,$blocks) = CORE::stat $fh;
                 close $fh;
                 my $M = ($^T - $mtime) / (24*60*60);
@@ -2372,7 +2435,7 @@ sub Ebig5plus::A(;*@) {
     if ($_ eq '_') {
         return wantarray ? (-A _,@_) : -A _;
     }
-    elsif (fileno(my $fh = Symbol::qualify_to_ref $_)) {
+    elsif (fileno(my $fh = qualify_to_ref $_)) {
         return wantarray ? (-A $fh,@_) : -A $fh;
     }
     elsif (-e $_) {
@@ -2383,8 +2446,8 @@ sub Ebig5plus::A(;*@) {
             return wantarray ? (-A _,@_) : -A _;
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,$atime,$mtime,$ctime,$blksize,$blocks) = CORE::stat $fh;
                 close $fh;
                 my $A = ($^T - $atime) / (24*60*60);
@@ -2406,7 +2469,7 @@ sub Ebig5plus::C(;*@) {
     if ($_ eq '_') {
         return wantarray ? (-C _,@_) : -C _;
     }
-    elsif (fileno(my $fh = Symbol::qualify_to_ref $_)) {
+    elsif (fileno(my $fh = qualify_to_ref $_)) {
         return wantarray ? (-C $fh,@_) : -C $fh;
     }
     elsif (-e $_) {
@@ -2417,8 +2480,8 @@ sub Ebig5plus::C(;*@) {
             return wantarray ? (-C _,@_) : -C _;
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,$atime,$mtime,$ctime,$blksize,$blocks) = CORE::stat $fh;
                 close $fh;
                 my $C = ($^T - $ctime) / (24*60*60);
@@ -2460,8 +2523,8 @@ sub Ebig5plus::r_() {
             return -r _ ? 1 : '';
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $r = -r $fh;
                 close $fh;
                 return $r ? 1 : '';
@@ -2484,8 +2547,8 @@ sub Ebig5plus::w_() {
             return -w _ ? 1 : '';
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_WRONLY|O_APPEND) {
+            my $fh = gensym();
+            if (open $fh, ">>$_") {
                 my $w = -w $fh;
                 close $fh;
                 return $w ? 1 : '';
@@ -2508,8 +2571,8 @@ sub Ebig5plus::x_() {
             return -x _ ? 1 : '';
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $dummy_for_underline_cache = -x $fh;
                 close $fh;
             }
@@ -2534,8 +2597,8 @@ sub Ebig5plus::o_() {
             return -o _ ? 1 : '';
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $o = -o $fh;
                 close $fh;
                 return $o ? 1 : '';
@@ -2558,8 +2621,8 @@ sub Ebig5plus::R_() {
             return -R _ ? 1 : '';
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $R = -R $fh;
                 close $fh;
                 return $R ? 1 : '';
@@ -2582,8 +2645,8 @@ sub Ebig5plus::W_() {
             return -W _ ? 1 : '';
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_WRONLY|O_APPEND) {
+            my $fh = gensym();
+            if (open $fh, ">>$_") {
                 my $W = -W $fh;
                 close $fh;
                 return $W ? 1 : '';
@@ -2606,8 +2669,8 @@ sub Ebig5plus::X_() {
             return -X _ ? 1 : '';
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $dummy_for_underline_cache = -X $fh;
                 close $fh;
             }
@@ -2632,8 +2695,8 @@ sub Ebig5plus::O_() {
             return -O _ ? 1 : '';
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $O = -O $fh;
                 close $fh;
                 return $O ? 1 : '';
@@ -2656,8 +2719,8 @@ sub Ebig5plus::e_() {
             return 1;
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $e = -e $fh;
                 close $fh;
                 return $e ? 1 : '';
@@ -2680,8 +2743,8 @@ sub Ebig5plus::z_() {
             return -z _ ? 1 : '';
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $z = -z $fh;
                 close $fh;
                 return $z ? 1 : '';
@@ -2704,8 +2767,8 @@ sub Ebig5plus::s_() {
             return -s _;
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $s = -s $fh;
                 close $fh;
                 return $s;
@@ -2728,8 +2791,8 @@ sub Ebig5plus::f_() {
             return '';
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $f = -f $fh;
                 close $fh;
                 return $f ? 1 : '';
@@ -2766,8 +2829,8 @@ sub Ebig5plus::l_() {
             return -l _ ? 1 : '';
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $l = -l $fh;
                 close $fh;
                 return $l ? 1 : '';
@@ -2790,8 +2853,8 @@ sub Ebig5plus::p_() {
             return -p _ ? 1 : '';
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $p = -p $fh;
                 close $fh;
                 return $p ? 1 : '';
@@ -2814,8 +2877,8 @@ sub Ebig5plus::S_() {
             return -S _ ? 1 : '';
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $S = -S $fh;
                 close $fh;
                 return $S ? 1 : '';
@@ -2838,8 +2901,8 @@ sub Ebig5plus::b_() {
             return -b _ ? 1 : '';
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $b = -b $fh;
                 close $fh;
                 return $b ? 1 : '';
@@ -2862,8 +2925,8 @@ sub Ebig5plus::c_() {
             return -c _ ? 1 : '';
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $c = -c $fh;
                 close $fh;
                 return $c ? 1 : '';
@@ -2894,8 +2957,8 @@ sub Ebig5plus::u_() {
             return -u _ ? 1 : '';
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $u = -u $fh;
                 close $fh;
                 return $u ? 1 : '';
@@ -2918,8 +2981,8 @@ sub Ebig5plus::g_() {
             return -g _ ? 1 : '';
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $g = -g $fh;
                 close $fh;
                 return $g ? 1 : '';
@@ -2942,8 +3005,8 @@ sub Ebig5plus::k_() {
             return -k _ ? 1 : '';
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my $k = -k $fh;
                 close $fh;
                 return $k ? 1 : '';
@@ -2963,8 +3026,8 @@ sub Ebig5plus::T_() {
     if (-d $_ or -d "$_/.") {
         return;
     }
-    my $fh = Symbol::gensym();
-    unless (sysopen $fh, $_, O_RDONLY) {
+    my $fh = gensym();
+    unless (open $fh, $_) {
         return;
     }
 
@@ -2997,8 +3060,8 @@ sub Ebig5plus::B_() {
     if (-d $_ or -d "$_/.") {
         return;
     }
-    my $fh = Symbol::gensym();
-    unless (sysopen $fh, $_, O_RDONLY) {
+    my $fh = gensym();
+    unless (open $fh, $_) {
         return;
     }
 
@@ -3034,8 +3097,8 @@ sub Ebig5plus::M_() {
             return -M _;
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,$atime,$mtime,$ctime,$blksize,$blocks) = CORE::stat $fh;
                 close $fh;
                 my $M = ($^T - $mtime) / (24*60*60);
@@ -3059,8 +3122,8 @@ sub Ebig5plus::A_() {
             return -A _;
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,$atime,$mtime,$ctime,$blksize,$blocks) = CORE::stat $fh;
                 close $fh;
                 my $A = ($^T - $atime) / (24*60*60);
@@ -3084,8 +3147,8 @@ sub Ebig5plus::C_() {
             return -C _;
         }
         else {
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 my($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,$atime,$mtime,$ctime,$blksize,$blocks) = CORE::stat $fh;
                 close $fh;
                 my $C = ($^T - $ctime) / (24*60*60);
@@ -3383,7 +3446,7 @@ sub Ebig5plus::lstat(*) {
 
     local $_ = shift if @_;
 
-    my $fh = Symbol::qualify_to_ref $_;
+    my $fh = qualify_to_ref $_;
     if (fileno $fh) {
         return CORE::lstat $fh;
     }
@@ -3391,8 +3454,8 @@ sub Ebig5plus::lstat(*) {
         return CORE::lstat _;
     }
     elsif (_MSWin32_5Cended_path($_)) {
-        my $fh = Symbol::gensym();
-        if (sysopen $fh, $_, O_RDONLY) {
+        my $fh = gensym();
+        if (open $fh, $_) {
             my @lstat = CORE::lstat $fh;
             close $fh;
             return @lstat;
@@ -3406,7 +3469,7 @@ sub Ebig5plus::lstat(*) {
 #
 sub Ebig5plus::lstat_() {
 
-    my $fh = Symbol::qualify_to_ref $_;
+    my $fh = qualify_to_ref $_;
     if (fileno $fh) {
         return CORE::lstat $fh;
     }
@@ -3414,8 +3477,8 @@ sub Ebig5plus::lstat_() {
         return CORE::lstat _;
     }
     elsif (_MSWin32_5Cended_path($_)) {
-        my $fh = Symbol::gensym();
-        if (sysopen $fh, $_, O_RDONLY) {
+        my $fh = gensym();
+        if (open $fh, $_) {
             my @lstat = CORE::lstat $fh;
             close $fh;
             return @lstat;
@@ -3433,7 +3496,7 @@ sub Ebig5plus::opendir(*$) {
     # in Chapter 7. File Access
     # of ISBN 0-596-00313-7 Perl Cookbook, 2nd Edition.
 
-    my $dh = Symbol::qualify_to_ref $_[0];
+    my $dh = qualify_to_ref $_[0];
     if (CORE::opendir $dh, $_[1]) {
         return 1;
     }
@@ -3452,7 +3515,7 @@ sub Ebig5plus::stat(*) {
 
     local $_ = shift if @_;
 
-    my $fh = Symbol::qualify_to_ref $_;
+    my $fh = qualify_to_ref $_;
     if (fileno $fh) {
         return CORE::stat $fh;
     }
@@ -3460,8 +3523,8 @@ sub Ebig5plus::stat(*) {
         return CORE::stat _;
     }
     elsif (_MSWin32_5Cended_path($_)) {
-        my $fh = Symbol::gensym();
-        if (sysopen $fh, $_, O_RDONLY) {
+        my $fh = gensym();
+        if (open $fh, $_) {
             my @stat = CORE::stat $fh;
             close $fh;
             return @stat;
@@ -3475,7 +3538,7 @@ sub Ebig5plus::stat(*) {
 #
 sub Ebig5plus::stat_() {
 
-    my $fh = Symbol::qualify_to_ref $_;
+    my $fh = qualify_to_ref $_;
     if (fileno $fh) {
         return CORE::stat $fh;
     }
@@ -3483,8 +3546,8 @@ sub Ebig5plus::stat_() {
         return CORE::stat _;
     }
     elsif (_MSWin32_5Cended_path($_)) {
-        my $fh = Symbol::gensym();
-        if (sysopen $fh, $_, O_RDONLY) {
+        my $fh = gensym();
+        if (open $fh, $_) {
             my @stat = CORE::stat $fh;
             close $fh;
             return @stat;
@@ -3522,8 +3585,8 @@ sub Ebig5plus::unlink(@) {
 
             system qq{del $file >NUL 2>NUL};
 
-            my $fh = Symbol::gensym();
-            if (sysopen $fh, $_, O_RDONLY) {
+            my $fh = gensym();
+            if (open $fh, $_) {
                 close $fh;
             }
             else {
@@ -3608,15 +3671,33 @@ ITER_DO:
                 my $mtime        = (Ebig5plus::stat($realfilename))[9];
                 my $module_mtime = (Ebig5plus::stat(__FILE__))[9];
                 if (Ebig5plus::e("$realfilename.e") and ($mtime < $e_mtime) and ($module_mtime < $e_mtime)) {
-                    my $fh = Symbol::gensym();
-                    sysopen $fh, "$realfilename.e", O_RDONLY;
-                    local $/ = undef; # slurp mode
-                    $script = <$fh>;
-                    close $fh;
+                    my $fh = gensym();
+                    if (open $fh, "$realfilename.e") {
+                        if (exists $ENV{'SJIS_NONBLOCK'}) {
+
+                            # 7.18. Locking a File
+                            # in Chapter 7. File Access
+                            # of ISBN 0-596-00313-7 Perl Cookbook, 2nd Edition.
+                            # (and so on)
+
+                            eval q{
+                                unless (flock($fh, LOCK_SH | LOCK_NB)) {
+                                    carp "$__FILE__: Can't immediately read-lock the file: $realfilename.e";
+                                    exit;
+                                }
+                            };
+                        }
+                        else {
+                            eval q{ flock($fh, LOCK_SH) };
+                        }
+                        local $/ = undef; # slurp mode
+                        $script = <$fh>;
+                        close $fh;
+                    }
                 }
                 else {
-                    my $fh = Symbol::gensym();
-                    sysopen $fh, $realfilename, O_RDONLY;
+                    my $fh = gensym();
+                    open $fh, $realfilename;
                     local $/ = undef; # slurp mode
                     $script = <$fh>;
                     close $fh;
@@ -3624,14 +3705,26 @@ ITER_DO:
                     if ($script =~ m/^ \s* use \s+ Big5Plus \s* ([^;]*) ; \s* \n? $/oxms) {
                         CORE::require Big5Plus;
                         $script = Big5Plus::escape_script($script);
-                        my $fh = Symbol::gensym();
-                        sysopen $fh, "$realfilename.e", O_WRONLY | O_TRUNC | O_CREAT;
-                        print {$fh} $script;
-                        close $fh;
+                        my $fh = gensym();
+                        if (open $fh, ">$realfilename.e") {
+                            if (exists $ENV{'SJIS_NONBLOCK'}) {
+                                eval q{
+                                    unless (flock($fh, LOCK_EX | LOCK_NB)) {
+                                        carp "$__FILE__: Can't immediately write-lock the file: $realfilename.e";
+                                        exit;
+                                    }
+                                };
+                            }
+                            else {
+                                eval q{ flock($fh, LOCK_EX) };
+                            }
+                            print {$fh} $script;
+                            close $fh;
+                        }
                     }
                 }
 
-                no strict;
+                eval { strict->unimport };
                 local $^W = $_warning;
                 local $@;
                 $result = eval $script;
@@ -3681,15 +3774,26 @@ ITER_REQUIRE:
                 my $mtime        = (Ebig5plus::stat($realfilename))[9];
                 my $module_mtime = (Ebig5plus::stat(__FILE__))[9];
                 if (Ebig5plus::e("$realfilename.e") and ($mtime < $e_mtime) and ($module_mtime < $e_mtime)) {
-                    my $fh = Symbol::gensym();
-                    sysopen($fh, "$realfilename.e", O_RDONLY) or croak "Can't open file: $realfilename.e";
+                    my $fh = gensym();
+                    open($fh, "$realfilename.e") or croak "Can't open file: $realfilename.e";
+                    if (exists $ENV{'SJIS_NONBLOCK'}) {
+                        eval q{
+                            unless (flock($fh, LOCK_SH | LOCK_NB)) {
+                                carp "$__FILE__: Can't immediately read-lock the file: $realfilename.e";
+                                exit;
+                            }
+                        };
+                    }
+                    else {
+                        eval q{ flock($fh, LOCK_SH) };
+                    }
                     local $/ = undef; # slurp mode
                     $script = <$fh>;
                     close($fh) or croak "Can't close file: $realfilename";
                 }
                 else {
-                    my $fh = Symbol::gensym();
-                    sysopen($fh, $realfilename, O_RDONLY) or croak "Can't open file: $realfilename";
+                    my $fh = gensym();
+                    open($fh, $realfilename) or croak "Can't open file: $realfilename";
                     local $/ = undef; # slurp mode
                     $script = <$fh>;
                     close($fh) or croak "Can't close file: $realfilename";
@@ -3697,14 +3801,25 @@ ITER_REQUIRE:
                     if ($script =~ m/^ \s* use \s+ Big5Plus \s* ([^;]*) ; \s* \n? $/oxms) {
                         CORE::require Big5Plus;
                         $script = Big5Plus::escape_script($script);
-                        my $fh = Symbol::gensym();
-                        sysopen($fh, "$realfilename.e", O_WRONLY | O_TRUNC | O_CREAT) or croak "Can't open file: $realfilename.e";
+                        my $fh = gensym();
+                        open($fh, ">$realfilename.e") or croak "Can't open file: $realfilename.e";
+                        if (exists $ENV{'SJIS_NONBLOCK'}) {
+                            eval q{
+                                unless (flock($fh, LOCK_EX | LOCK_NB)) {
+                                    carp "$__FILE__: Can't immediately write-lock the file: $realfilename.e";
+                                    exit;
+                                }
+                            };
+                        }
+                        else {
+                            eval q{ flock($fh, LOCK_EX) };
+                        }
                         print {$fh} $script;
                         close($fh) or croak "Can't close file: $realfilename";
                     }
                 }
 
-                no strict;
+                eval { strict->unimport };
                 local $^W = $_warning;
                 $result = eval $script;
 

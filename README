@@ -14,6 +14,7 @@ SYNOPSIS
       perl58    yourscript.pl  wild*  *card  and  '*quote*'  are  ok  ...
       perl510   yourscript.pl  wild*  *card  and  '*quote*'  are  ok  ...
       perl512   yourscript.pl  wild*  *card  and  '*quote*'  are  ok  ...
+      perl64    yourscript.pl  wild*  *card  and  '*quote*'  are  ok  ...
 
 DESCRIPTION
 
@@ -34,6 +35,7 @@ To install this software, type the following:
    perl58   make.bat install  --- install to Perl5.8
    perl510  make.bat install  --- install to Perl5.10
    perl512  make.bat install  --- install to Perl5.12
+   perl64   make.bat install  --- install to Perl64
 
 MAKE OTHER
 
@@ -47,6 +49,7 @@ PROGRAM COMPOSITION
    perl58.bat   --- find and run perl5.8  without %PATH% settings
    perl510.bat  --- find and run perl5.10 without %PATH% settings
    perl512.bat  --- find and run perl5.12 without %PATH% settings
+   perl64.bat   --- find and run perl64   without %PATH% settings
 
 DEPENDENCIES
 

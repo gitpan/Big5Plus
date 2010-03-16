@@ -1,5 +1,13 @@
 Revision history for this software.
 
+0.52  2010/03/17 00:00:00
+	- bugfix ${ foo } in regexp.
+	- remove modules (re.pm, Fcntl.pm and Symbol.pm).
+	- call flock in Esjis::do and Esjis::require.
+	- add perl64.bat.
+	- Makefile.pl support UNIX like system.
+	; created by INABA Hitoshi
+
 0.51  2010/03/07 00:00:00
 	- remove ** UNAUTHORIZED RELEASE ** modules (Fcntl.pm and Symbol.pm).
 	; created by INABA Hitoshi

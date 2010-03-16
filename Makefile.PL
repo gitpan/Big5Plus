@@ -1,16 +1,18 @@
+######################################################################
+#
+# Makefile.pl - Makefile.pl for Sjis software
+#
+#                  http://search.cpan.org/dist/Sjis/
+#
+# Copyright (c) 2008, 2009, 2010 INABA Hitoshi <ina@cpan.org>
+######################################################################
+
 use strict;
-select((select(STDOUT), $|=1)[0]);
-select((select(STDERR), $|=1)[0]);
-use Fcntl;
-use Symbol;
 
 # make make.bat
-my $fh_makebat = Symbol::gensym();
-sysopen($fh_makebat, 'make.bat', O_WRONLY | O_TRUNC | O_CREAT) || die "Can't open file: make.bat\n";
-print {$fh_makebat} <DATA>;
-close $fh_makebat;
-
-__END__
+if ($^O =~ /\A (?: MSWin32 | NetWare | symbian | dos ) \z/oxms) {
+    open(FH_MAKEBAT, '>make.bat') || die "Can't open file: make.bat\n";
+    print FH_MAKEBAT <<'END';
 @rem = '--*-Perl-*--
 @echo off
 if "%OS%" == "Windows_NT" goto WinNT
@@ -24,13 +26,34 @@ goto endofperl
 @rem ';
 #!perl
 #line 14
-
-# poor make
-
 undef @rem;
+END
+    print FH_MAKEBAT <DATA>;
+    close FH_MAKEBAT;
+}
+
+# make make
+else {
+    open(FH_MAKEBAT, '>make') || die "Can't open file: make\n";
+    print FH_MAKEBAT <<END;
+#!$^X
+END
+    print FH_MAKEBAT <DATA>;
+    close FH_MAKEBAT;
+    chmod 0755, 'make';
+}
+
+__END__
+######################################################################
+#
+# make - Poor make for Sjis software
+#
+#                  http://search.cpan.org/dist/Sjis/
+#
+# Copyright (c) 2008, 2009, 2010 INABA Hitoshi <ina@cpan.org>
+######################################################################
+
 use strict;
-use Fcntl;
-use Symbol;
 use File::Path;
 use File::Copy;
 use File::Basename;
@@ -39,7 +62,8 @@ use Archive::Tar;
 use Compress::Zlib;
 
 unless (@ARGV) {
-    die <<END;
+    if ($^O =~ /\A (?: MSWin32 | NetWare | symbian | dos ) \z/oxms) {
+        die <<END;
 
 usage: make
 usage: make test
@@ -48,13 +72,24 @@ usage: make dist
 usage: make tar.bat
 
 END
+    }
+    else {
+        die <<END;
+
+usage: make
+usage: make test
+usage: make install
+usage: make dist
+usage: make tar
+
+END
+    }
 }
 
 # get file list
-my $fh_manifest = Symbol::gensym();
-sysopen($fh_manifest, 'MANIFEST', O_RDONLY) || die "Can't open file: MANIFEST\n";
-chomp(my @file = <$fh_manifest>);
-close $fh_manifest;
+open(FH_MANIFEST, 'MANIFEST');
+chomp(my @file = <FH_MANIFEST>);
+close FH_MANIFEST;
 
 for my $target (@ARGV) {
     if ($target eq 'test') {
@@ -97,17 +132,16 @@ for my $target (@ARGV) {
 
         # make work directory
         my($changes) = grep(/^Changes$/i,@file);
-        my $fh_changes = Symbol::gensym();
-        sysopen($fh_changes, $changes, O_RDONLY) || die "Can't open file: $changes\n";
+        open(FH_CHANGES, $changes) || die "Can't open file: $changes\n";
         my $version = 0;
-        while (<$fh_changes>) {
+        while (<FH_CHANGES>) {
             if (/^(\d+\.\d+(\.\d+\.\d+)*)/) {
                 if ($1 > $version) {
                     $version = $1;
                 }
             }
         }
-        close $fh_changes;
+        close FH_CHANGES;
         my $dirname  = dirname($file[0]);
         my $basename = basename($file[0], '.pm','.pl','.bat');
         my $tardir;
@@ -122,16 +156,14 @@ for my $target (@ARGV) {
 
         # rewrite META.yml file
         if(my($metayml) = grep(/^META\.yml$/i,@file)) {
-            my $fh_metayml = Symbol::gensym();
-            if (sysopen($fh_metayml, $metayml, O_RDONLY)) {
-                $_ = join('',<$fh_metayml>);
-                close $fh_metayml;
-                my $fh_metayml = Symbol::gensym();
-                if (sysopen($fh_metayml, $metayml, O_WRONLY | O_TRUNC | O_CREAT)) {
+            if (open(FH_METAYML, $metayml)) {
+                $_ = join('',<FH_METAYML>);
+                close FH_METAYML;
+                if (open(FH_METAYML, ">$metayml")) {
                     s/^(version:\s*)\d+\.\d+(\.\d+\.\d+)*/$1$version/m;
-                    binmode $fh_metayml;
-                    print {$fh_metayml} $_;
-                    close $fh_metayml;
+                    binmode FH_METAYML;
+                    print FH_METAYML $_;
+                    close FH_METAYML;
                 }
             }
         }
@@ -151,12 +183,11 @@ for my $target (@ARGV) {
 #-----------------------------------------------------------------------------
 #               $tar->add_files("$tardir/$file");
 #-----------------------------------------------------------------------------
-                my $fh = Symbol::gensym();
-                sysopen($fh, $file, O_RDONLY) || die "Can't open file: $file\n";
-                binmode $fh;
+                open(FH, $file) || die "Can't open file: $file\n";
+                binmode FH;
                 local $/ = undef; # slurp mode
-                my $data = <$fh>;
-                close $fh;
+                my $data = <FH>;
+                close FH;
                 if ($file =~ m/\. (com|exe|bat|pl) \z/oxmsi) {
                     $tar->add_data("$tardir/$file", $data, {'mode' => 0775});
                 }
@@ -176,11 +207,10 @@ for my $target (@ARGV) {
 
         # make *.tar.gz file
         my $gz = gzopen("$tarfile.gz", 'wb');
-        my $fh_tar = Symbol::gensym();
-        sysopen($fh_tar, $tarfile, O_RDONLY) || die "Can't open file: $tarfile\n";
-        binmode $fh_tar;
-        $gz->gzwrite(join('',<$fh_tar>));
-        close $fh_tar;
+        open(FH_TAR, $tarfile) || die "Can't open file: $tarfile\n";
+        binmode FH_TAR;
+        $gz->gzwrite(join('',<FH_TAR>));
+        close FH_TAR;
         $gz->gzclose;
         unlink $tarfile;
 
@@ -192,23 +222,21 @@ for my $target (@ARGV) {
         local @ENV{qw(IFS CDPATH ENV BASH_ENV)};
 
         # untar test
-        system("make.bat tar.bat");
-        system("tar.bat xzvf $tarfile.gz");
+        if ($^O =~ /\A (?: MSWin32 | NetWare | symbian | dos ) \z/oxms) {
+            system("make.bat tar.bat");
+            system("tar.bat xzvf $tarfile.gz");
+        }
+        else {
+            system("./make tar");
+            system("./tar xzvf $tarfile.gz");
+        }
     }
-    elsif ($target eq 'tar.bat') {
+    elsif ($target =~ /^tar(?:\.bat)?$/) {
 
         # make tar.bat
-        my $fh_tarbat = Symbol::gensym();
-        sysopen($fh_tarbat, 'tar.bat', O_WRONLY | O_TRUNC | O_CREAT) || die "Can't open file: tar.bat\n";
-        print {$fh_tarbat} <DATA>;
-        close $fh_tarbat;
-    }
-    else {
-        warn "unknown target: $target.\n";
-    }
-}
-
-__END__
+        if ($^O =~ /\A (?: MSWin32 | NetWare | symbian | dos ) \z/oxms) {
+            open(FH_TARBAT, '>tar.bat') || die "Can't open file: tar.bat\n";
+            print FH_TARBAT <<'END';
 @rem = '--*-Perl-*--
 @echo off
 if "%OS%" == "Windows_NT" goto WinNT
@@ -222,13 +250,39 @@ goto endofperl
 @rem ';
 #!perl
 #line 14
-
-# poor tar
-
 undef @rem;
+END
+            print FH_TARBAT <DATA>;
+            close FH_TARBAT;
+        }
+
+        # make tar
+        else {
+            open(FH_TARBAT, '>tar') || die "Can't open file: tar\n";
+            print FH_TARBAT <<END;
+#!$^X
+END
+            print FH_TARBAT <DATA>;
+            close FH_TARBAT;
+            chmod 0755, 'tar';
+        }
+    }
+    else {
+        warn "unknown target: $target.\n";
+    }
+}
+
+__END__
+######################################################################
+#
+# tar - Poor tar for Sjis software
+#
+#                  http://search.cpan.org/dist/Sjis/
+#
+# Copyright (c) 2008, 2009, 2010 INABA Hitoshi <ina@cpan.org>
+######################################################################
+
 use strict;
-use Fcntl;
-use Symbol;
 use Compress::Zlib;
 use Archive::Tar;
 
@@ -245,14 +299,13 @@ for my $gzfile (grep m/\.tar\.gz$/xmsi, @ARGV) {
 
     my $gz = gzopen($gzfile, 'rb');
     (my $tarfile = $gzfile) =~ s/\.gz$//xmsi;
-    my $fh_tar = Symbol::gensym();
-    sysopen($fh_tar, $tarfile, O_WRONLY | O_TRUNC | O_CREAT) || die "Can't open file: $tarfile\n";
-    binmode $fh_tar;
+    open(FH_TAR, ">$tarfile") || die "Can't open file: $tarfile\n";
+    binmode FH_TAR;
     while ($gz->gzreadline(my $line)) {
-        print {$fh_tar} $line;
+        print FH_TAR $line;
     }
     $gz->gzclose;
-    close $fh_tar;
+    close FH_TAR;
 
     my $tar = Archive::Tar->new($tarfile,1);
     for my $file ($tar->list_files){
