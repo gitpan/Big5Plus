@@ -18,7 +18,7 @@ use 5.00503;
 
 BEGIN { eval q{ use vars qw($VERSION $_warning) } }
 
-$VERSION = sprintf '%d.%02d', q$Revision: 0.52 $ =~ m/(\d+)/xmsg;
+$VERSION = sprintf '%d.%02d', q$Revision: 0.54 $ =~ m/(\d+)/xmsg;
 
 # poor Symbol.pm - substitute of real Symbol.pm
 BEGIN {
@@ -215,6 +215,20 @@ elsif (__PACKAGE__ eq 'Eutf2') {
         4 => [ [0xF0..0xF0],[0x90..0xBF],[0x80..0xBF],[0x80..0xBF],
                [0xF1..0xF3],[0x80..0xBF],[0x80..0xBF],[0x80..0xBF],
                [0xF4..0xF4],[0x80..0x8F],[0x80..0xBF],[0x80..0xBF],
+             ],
+    );
+}
+
+# Old UTF-8
+elsif (__PACKAGE__ eq 'Eoldutf8') {
+    %range_tr = (
+        1 => [ [0x00..0x7F],
+             ],
+        2 => [ [0xC0..0xDF],[0x80..0xBF],
+             ],
+        3 => [ [0xE0..0xEF],[0x80..0xBF],[0x80..0xBF],
+             ],
+        4 => [ [0xF0..0xF4],[0x80..0xBF],[0x80..0xBF],[0x80..0xBF],
              ],
     );
 }
@@ -699,18 +713,61 @@ sub Ebig5plus::rindex($$;$) {
     @lc{qw(A B C D E F G H I J K L M N O P Q R S T U V W X Y Z)} =
         qw(a b c d e f g h i j k l m n o p q r s t u v w x y z);
 
+    # ISO/IEC 8859-1 Latin-1 CAPITAL => SMALL
+
+    # http://anubis.dkuug.dk/JTC1/SC2/WG3/docs/n411.pdf
+    # (and so on)
+
+    if (__PACKAGE__ eq 'Elatin1') {
+        %lc = (%lc,
+            "\xC0" => "\xE0", # LATIN LETTER A WITH GRAVE
+            "\xC1" => "\xE1", # LATIN LETTER A WITH ACUTE
+            "\xC2" => "\xE2", # LATIN LETTER A WITH CIRCUMFLEX
+            "\xC3" => "\xE3", # LATIN LETTER A WITH TILDE
+            "\xC4" => "\xE4", # LATIN LETTER A WITH DIAERESIS
+            "\xC5" => "\xE5", # LATIN LETTER A WITH RING ABOVE
+            "\xC6" => "\xE6", # LATIN LETTER AE
+            "\xC7" => "\xE7", # LATIN LETTER C WITH CEDILLA
+            "\xC8" => "\xE8", # LATIN LETTER E WITH GRAVE
+            "\xC9" => "\xE9", # LATIN LETTER E WITH ACUTE
+            "\xCA" => "\xEA", # LATIN LETTER E WITH CIRCUMFLEX
+            "\xCB" => "\xEB", # LATIN LETTER E WITH DIAERESIS
+            "\xCC" => "\xEC", # LATIN LETTER I WITH GRAVE
+            "\xCD" => "\xED", # LATIN LETTER I WITH ACUTE
+            "\xCE" => "\xEE", # LATIN LETTER I WITH CIRCUMFLEX
+            "\xCF" => "\xEF", # LATIN LETTER I WITH DIAERESIS
+            "\xD0" => "\xF0", # LATIN LETTER ETH (Icelandic)
+            "\xD1" => "\xF1", # LATIN LETTER N WITH TILDE
+            "\xD2" => "\xF2", # LATIN LETTER O WITH GRAVE
+            "\xD3" => "\xF3", # LATIN LETTER O WITH ACUTE
+            "\xD4" => "\xF4", # LATIN LETTER O WITH CIRCUMFLEX
+            "\xD5" => "\xF5", # LATIN LETTER O WITH TILDE
+            "\xD6" => "\xF6", # LATIN LETTER O WITH DIAERESIS
+            "\xD8" => "\xF8", # LATIN LETTER O WITH STROKE
+            "\xD9" => "\xF9", # LATIN LETTER U WITH GRAVE
+            "\xDA" => "\xFA", # LATIN LETTER U WITH ACUTE
+            "\xDB" => "\xFB", # LATIN LETTER U WITH CIRCUMFLEX
+            "\xDC" => "\xFC", # LATIN LETTER U WITH DIAERESIS
+            "\xDD" => "\xFD", # LATIN LETTER Y WITH ACUTE
+            "\xDE" => "\xFE", # LATIN LETTER THORN (Icelandic)
+        );
+    }
+
     # lower case with parameter
     sub Ebig5plus::lc(@) {
-
-        local $_ = shift if @_;
-
-        return join('', map {defined($lc{$_}) ? $lc{$_} : $_} m/\G ($q_char) /oxmsg), @_;
+        if (@_) {
+            my $s = shift @_;
+            return join('', map {defined($lc{$_}) ? $lc{$_} : $_} ($s =~ m/\G ($q_char) /oxmsg)), @_;
+        }
+        else {
+            return Ebig5plus::lc_();
+        }
     }
 
     # lower case without parameter
     sub Ebig5plus::lc_() {
-
-        return join('', map {defined($lc{$_}) ? $lc{$_} : $_} m/\G ($q_char) /oxmsg);
+        my $s = $_;
+        return join '', map {defined($lc{$_}) ? $lc{$_} : $_} ($s =~ m/\G ($q_char) /oxmsg);
     }
 }
 
@@ -722,18 +779,58 @@ sub Ebig5plus::rindex($$;$) {
     @uc{qw(a b c d e f g h i j k l m n o p q r s t u v w x y z)} =
         qw(A B C D E F G H I J K L M N O P Q R S T U V W X Y Z);
 
+    # ISO/IEC 8859-1 Latin-1 SMALL => CAPITAL
+
+    if (__PACKAGE__ eq 'Elatin1') {
+        %uc = (%uc,
+            "\xE0" => "\xC0", # LATIN LETTER A WITH GRAVE
+            "\xE1" => "\xC1", # LATIN LETTER A WITH ACUTE
+            "\xE2" => "\xC2", # LATIN LETTER A WITH CIRCUMFLEX
+            "\xE3" => "\xC3", # LATIN LETTER A WITH TILDE
+            "\xE4" => "\xC4", # LATIN LETTER A WITH DIAERESIS
+            "\xE5" => "\xC5", # LATIN LETTER A WITH RING ABOVE
+            "\xE6" => "\xC6", # LATIN LETTER AE
+            "\xE7" => "\xC7", # LATIN LETTER C WITH CEDILLA
+            "\xE8" => "\xC8", # LATIN LETTER E WITH GRAVE
+            "\xE9" => "\xC9", # LATIN LETTER E WITH ACUTE
+            "\xEA" => "\xCA", # LATIN LETTER E WITH CIRCUMFLEX
+            "\xEB" => "\xCB", # LATIN LETTER E WITH DIAERESIS
+            "\xEC" => "\xCC", # LATIN LETTER I WITH GRAVE
+            "\xED" => "\xCD", # LATIN LETTER I WITH ACUTE
+            "\xEE" => "\xCE", # LATIN LETTER I WITH CIRCUMFLEX
+            "\xEF" => "\xCF", # LATIN LETTER I WITH DIAERESIS
+            "\xF0" => "\xD0", # LATIN LETTER ETH (Icelandic)
+            "\xF1" => "\xD1", # LATIN LETTER N WITH TILDE
+            "\xF2" => "\xD2", # LATIN LETTER O WITH GRAVE
+            "\xF3" => "\xD3", # LATIN LETTER O WITH ACUTE
+            "\xF4" => "\xD4", # LATIN LETTER O WITH CIRCUMFLEX
+            "\xF5" => "\xD5", # LATIN LETTER O WITH TILDE
+            "\xF6" => "\xD6", # LATIN LETTER O WITH DIAERESIS
+            "\xF8" => "\xD8", # LATIN LETTER O WITH STROKE
+            "\xF9" => "\xD9", # LATIN LETTER U WITH GRAVE
+            "\xFA" => "\xDA", # LATIN LETTER U WITH ACUTE
+            "\xFB" => "\xDB", # LATIN LETTER U WITH CIRCUMFLEX
+            "\xFC" => "\xDC", # LATIN LETTER U WITH DIAERESIS
+            "\xFD" => "\xDD", # LATIN LETTER Y WITH ACUTE
+            "\xFE" => "\xDE", # LATIN LETTER THORN (Icelandic)
+        );
+    }
+
     # upper case with parameter
     sub Ebig5plus::uc(@) {
-
-        local $_ = shift if @_;
-
-        return join('', map {defined($uc{$_}) ? $uc{$_} : $_} m/\G ($q_char) /oxmsg), @_;
+        if (@_) {
+            my $s = shift @_;
+            return join('', map {defined($uc{$_}) ? $uc{$_} : $_} ($s =~ m/\G ($q_char) /oxmsg)), @_;
+        }
+        else {
+            return Ebig5plus::uc_();
+        }
     }
 
     # upper case without parameter
     sub Ebig5plus::uc_() {
-
-        return join('', map {defined($uc{$_}) ? $uc{$_} : $_} m/\G ($q_char) /oxmsg);
+        my $s = $_;
+        return join '', map {defined($uc{$_}) ? $uc{$_} : $_} ($s =~ m/\G ($q_char) /oxmsg);
     }
 }
 
@@ -751,9 +848,7 @@ sub Ebig5plus::rindex($$;$) {
         if ($last_s_matched and ($_[0] =~ m/\A [1-9][0-9]* \z/oxms)) {
             return $_[0] + 1;
         }
-        else {
-            return $_[0];
-        }
+        return $_[0];
     }
 
     # Big5Plus regexp mark last m// or qr// matched
@@ -777,7 +872,7 @@ sub Ebig5plus::rindex($$;$) {
 }
 
 #
-# Big5Plus regexp ignore case option
+# Big5Plus regexp ignore case modifier
 #
 sub Ebig5plus::ignorecase(@) {
 
@@ -886,10 +981,13 @@ sub Ebig5plus::ignorecase(@) {
                 $char[$i] = $char;
             }
 
-            # /i option
-            elsif ($char[$i] =~ m/\A ([A-Za-z]) \z/oxms) {
-                my $c = $1;
-                $char[$i] = '[' . CORE::uc($c) . CORE::lc($c) . ']';
+            # /i modifier
+            elsif ($char[$i] =~ m/\A [\x00-\xFF] \z/oxms) {
+                my $uc = Ebig5plus::uc($char[$i]);
+                my $lc = Ebig5plus::lc($char[$i]);
+                if ($uc ne $lc) {
+                    $char[$i] = '[' . $uc . $lc . ']';
+                }
             }
         }
 
@@ -1322,9 +1420,16 @@ sub _charlist {
         }
 
         # /i modifier
-        elsif ($char[$i] =~ m/\A [A-Za-z] \z/oxms) {
+        elsif ($char[$i] =~ m/\A [\x00-\xFF] \z/oxms) {
             if ($modifier =~ m/i/oxms) {
-                push @singleoctet, CORE::uc $char[$i], CORE::lc $char[$i];
+                my $uc = Ebig5plus::uc($char[$i]);
+                my $lc = Ebig5plus::lc($char[$i]);
+                if ($uc ne $lc) {
+                    push @singleoctet, $uc, $lc;
+                }
+                else {
+                    push @singleoctet, $char[$i];
+                }
             }
             else {
                 push @singleoctet, $char[$i];
@@ -3327,37 +3432,21 @@ OUTER:
 
         my $pattern = '';
         while ($expr =~ m/ \G ($q_char) /oxgc) {
-            $pattern .= {
-                '*' => "(?:$your_char)*",
-                '?' => "(?:$your_char)?",  # DOS style
-            #   '?' => "(?:$your_char)",   # UNIX style
-                'a' => 'A',
-                'b' => 'B',
-                'c' => 'C',
-                'd' => 'D',
-                'e' => 'E',
-                'f' => 'F',
-                'g' => 'G',
-                'h' => 'H',
-                'i' => 'I',
-                'j' => 'J',
-                'k' => 'K',
-                'l' => 'L',
-                'm' => 'M',
-                'n' => 'N',
-                'o' => 'O',
-                'p' => 'P',
-                'q' => 'Q',
-                'r' => 'R',
-                's' => 'S',
-                't' => 'T',
-                'u' => 'U',
-                'v' => 'V',
-                'w' => 'W',
-                'x' => 'X',
-                'y' => 'Y',
-                'z' => 'Z',
-            }->{$1} || quotemeta $1;
+            my $char = $1;
+            my $uc = Ebig5plus::uc($char);
+            if ($uc ne $char) {
+                $pattern .= $uc;
+            }
+            elsif ($char eq '*') {
+                $pattern .= "(?:$your_char)*",
+            }
+            elsif ($char eq '?') {
+                $pattern .= "(?:$your_char)?",  # DOS style
+#               $pattern .= "(?:$your_char)",   # UNIX style
+            }
+            else {
+                $pattern .= quotemeta $char;
+            }
         }
         my $matchsub = sub { Ebig5plus::uc($_[0]) =~ m{\A $pattern \z}xms };
 
@@ -3616,16 +3705,12 @@ sub Ebig5plus::chdir(;$) {
         if ($] =~ /^5\.005/) {
             return CORE::chdir $dir;
         }
-        elsif ($] =~ /^5\.006/) {
-            croak "perl$] can't chdir to $dir (chr(0x5C) ended path)";
-        }
-        elsif ($] =~ /^5\.008/) {
-            croak "perl$] can't chdir to $dir (chr(0x5C) ended path)";
-        }
-        elsif ($] =~ /^5\.010/) {
-            croak "perl$] can't chdir to $dir (chr(0x5C) ended path)";
-        }
         else {
+            my @char = $dir =~ m/\G ($q_char) /oxmsg;
+            while ($char[-1] eq "\x5C") {
+                pop @char;
+            }
+            $dir = join '', @char;
             croak "perl$] can't chdir to $dir (chr(0x5C) ended path)";
         }
     }

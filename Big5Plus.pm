@@ -19,7 +19,7 @@ use Ebig5plus;
 
 BEGIN { eval q{ use vars qw($VERSION) } }
 
-$VERSION = sprintf '%d.%02d', q$Revision: 0.52 $ =~ m/(\d+)/oxmsg;
+$VERSION = sprintf '%d.%02d', q$Revision: 0.54 $ =~ m/(\d+)/oxmsg;
 
 # poor Symbol.pm - substitute of real Symbol.pm
 BEGIN {
@@ -73,7 +73,8 @@ my  $q_char   = qr/$your_char/oxms;
 # P.1023 Appendix W.9 Multibyte Anchoring
 # of ISBN 1-56592-224-7 CJKV Information Processing
 
-my $your_gap = q{\G(?:[\x81-\xFE][\x00-\xFF]|[^\x81-\xFE])*?};
+my $your_gap = '';
+$your_gap = q{\G(?:[\x81-\xFE][\x00-\xFF]|[^\x81-\xFE])*?};
 
 BEGIN { eval q{ use vars qw($nest) } }
 
@@ -84,25 +85,33 @@ BEGIN { eval q{ use vars qw($nest) } }
 # of ISBN 0-596-00289-0 Mastering Regular Expressions, Second edition
 
 my $qq_paren   = qr{(?{local $nest=0}) (?>(?:
-                    \\c[\x40-\x5F] | \\? [\x81-\xFE][\x00-\xFF] | \\ [\x00-\xFF] |
+                    \\c[\x40-\x5F] |
+                    \\? [\x81-\xFE][\x00-\xFF] |
+                    \\ [\x00-\xFF] |
                     [^()] |
                              \(  (?{$nest++}) |
                              \)  (?(?{$nest>0})(?{$nest--})|(?!)))*) (?(?{$nest!=0})(?!))
                  }xms;
 my $qq_brace   = qr{(?{local $nest=0}) (?>(?:
-                    \\c[\x40-\x5F] | \\? [\x81-\xFE][\x00-\xFF] | \\ [\x00-\xFF] |
+                    \\c[\x40-\x5F] |
+                    \\? [\x81-\xFE][\x00-\xFF] |
+                    \\ [\x00-\xFF] |
                     [^{}] |
                              \{  (?{$nest++}) |
                              \}  (?(?{$nest>0})(?{$nest--})|(?!)))*) (?(?{$nest!=0})(?!))
                  }xms;
 my $qq_bracket = qr{(?{local $nest=0}) (?>(?:
-                    \\c[\x40-\x5F] | \\? [\x81-\xFE][\x00-\xFF] | \\ [\x00-\xFF] |
+                    \\c[\x40-\x5F] |
+                    \\? [\x81-\xFE][\x00-\xFF] |
+                    \\ [\x00-\xFF] |
                     [^[\]] |
                              \[  (?{$nest++}) |
                              \]  (?(?{$nest>0})(?{$nest--})|(?!)))*) (?(?{$nest!=0})(?!))
                  }xms;
 my $qq_angle   = qr{(?{local $nest=0}) (?>(?:
-                    \\c[\x40-\x5F] | \\? [\x81-\xFE][\x00-\xFF] | \\ [\x00-\xFF] |
+                    \\c[\x40-\x5F] |
+                    \\? [\x81-\xFE][\x00-\xFF] |
+                    \\ [\x00-\xFF] |
                     [^<>] |
                              \<  (?{$nest++}) |
                              \>  (?(?{$nest>0})(?{$nest--})|(?!)))*) (?(?{$nest!=0})(?!))
@@ -155,9 +164,11 @@ my $q_angle    = qr{(?{local $nest=0}) (?>(?:
 # in Chapter 31. Pragmatic Modules
 # of ISBN 0-596-00027-8 Programming Perl Third Edition.
 
-my $use_re_eval = qq{};
-my $m_matched   = q{@Ebig5plus::m_matched};
-my $s_matched   = q{@Ebig5plus::s_matched};
+my $use_re_eval = '';
+my $m_matched   = '';
+my $s_matched   = '';
+$m_matched   = q{@Ebig5plus::m_matched};
+$s_matched   = q{@Ebig5plus::s_matched};
 
 my $tr_variable   = '';   # variable of tr///
 my $sub_variable  = '';   # variable of s///
@@ -3127,7 +3138,11 @@ sub e_qr {
 
         # quote character before ? + * {
         elsif (($i >= 1) and ($char[$i] =~ m/\A [\?\+\*\{] \z/oxms)) {
-            if ($char[$i-1] !~ m/\A (?:[\x00-\xFF]|\\[0-7]{2,3}|\\x[0-9-A-Fa-f]{1,2}) \z/oxms) {
+            if (CORE::length($char[$i-1]) == 1) {
+            }
+            elsif ($char[$i-1] =~ m/\A (?:\\[0-7]{2,3}|\\x[0-9-A-Fa-f]{1,2}) \z/oxms) {
+            }
+            else {
                 $char[$i-1] = '(?:' . $char[$i-1] . ')';
             }
         }
@@ -3228,7 +3243,9 @@ sub e_qr_q {
 
         # quote character before ? + * {
         elsif (($i >= 1) and ($char[$i] =~ m/\A [\?\+\*\{] \z/oxms)) {
-            if ($char[$i-1] !~ m/\A [\x00-\xFF] \z/oxms) {
+            if (CORE::length($char[$i-1]) == 1) {
+            }
+            else {
                 $char[$i-1] = '(?:' . $char[$i-1] . ')';
             }
         }
@@ -3525,18 +3542,24 @@ sub e_s1 {
 
         # quote character before ? + * {
         elsif (($i >= 1) and ($char[$i] =~ m/\A [\?\+\*\{] \z/oxms)) {
-            if ($char[$i-1] !~ m/\A (?:[\x00-\xFF]|\\[0-7]{2,3}|\\x[0-9-A-Fa-f]{1,2}) \z/oxms) {
+            if (CORE::length($char[$i-1]) == 1) {
+            }
+            elsif ($char[$i-1] =~ m/\A (?:\\[0-7]{2,3}|\\x[0-9-A-Fa-f]{1,2}) \z/oxms) {
+            }
+            else {
                 $char[$i-1] = '(?:' . $char[$i-1] . ')';
             }
         }
     }
 
     # make regexp string
+    my $capture_your_gap = '';
+    $capture_your_gap = "($your_gap)";
     $modifier =~ tr/i//d;
     if ($left_e > $right_e) {
-        return join '', $ope, $delimiter, "($your_gap)(?:", @char, '>]}' x ($left_e - $right_e), ')', $s_matched, $end_delimiter, $modifier;
+        return join '', $ope, $delimiter, $capture_your_gap, '(?:', @char, '>]}' x ($left_e - $right_e), ')', $s_matched, $end_delimiter, $modifier;
     }
-    return     join '', $ope, $delimiter, "($your_gap)(?:", @char,                               ')', $s_matched, $end_delimiter, $modifier;
+    return     join '', $ope, $delimiter, $capture_your_gap, '(?:', @char,                               ')', $s_matched, $end_delimiter, $modifier;
 }
 
 #
@@ -3626,7 +3649,9 @@ sub e_s1_q {
 
         # quote character before ? + * {
         elsif (($i >= 1) and ($char[$i] =~ m/\A [\?\+\*\{] \z/oxms)) {
-            if ($char[$i-1] !~ m/\A [\x00-\xFF] \z/oxms) {
+            if (CORE::length($char[$i-1]) == 1) {
+            }
+            else {
                 $char[$i-1] = '(?:' . $char[$i-1] . ')';
             }
         }
@@ -3635,7 +3660,9 @@ sub e_s1_q {
     $modifier =~ tr/i//d;
     $delimiter     = '/';
     $end_delimiter = '/';
-    return join '', $ope, $delimiter, "($your_gap)(?:", @char, ')', $s_matched, $end_delimiter, $modifier;
+    my $capture_your_gap = '';
+    $capture_your_gap = "($your_gap)";
+    return join '', $ope, $delimiter, $capture_your_gap, '(?:', @char, ')', $s_matched, $end_delimiter, $modifier;
 }
 
 #
@@ -4041,7 +4068,11 @@ sub e_split {
 
         # quote character before ? + * {
         elsif (($i >= 1) and ($char[$i] =~ m/\A [\?\+\*\{] \z/oxms)) {
-            if ($char[$i-1] !~ m/\A (?:[\x00-\xFF]|\\[0-7]{2,3}|\\x[0-9-A-Fa-f]{1,2}) \z/oxms) {
+            if (CORE::length($char[$i-1]) == 1) {
+            }
+            elsif ($char[$i-1] =~ m/\A (?:\\[0-7]{2,3}|\\x[0-9-A-Fa-f]{1,2}) \z/oxms) {
+            }
+            else {
                 $char[$i-1] = '(?:' . $char[$i-1] . ')';
             }
         }
@@ -4141,7 +4172,9 @@ sub e_split_q {
 
         # quote character before ? + * {
         elsif (($i >= 1) and ($char[$i] =~ m/\A [\?\+\*\{] \z/oxms)) {
-            if ($char[$i-1] !~ m/\A [\x00-\xFF] \z/oxms) {
+            if (CORE::length($char[$i-1]) == 1) {
+            }
+            else {
                 $char[$i-1] = '(?:' . $char[$i-1] . ')';
             }
         }
@@ -4573,11 +4606,11 @@ It means not compatible with JPerl.
 
   To find the length of a string in bytes rather than characters, say:
 
-  $blen = length $string;
+  $blen = length($string);
 
   or
 
-  $blen = CORE::length $string;
+  $blen = CORE::length($string);
 
 =item substr by Big5Plus character
 
@@ -4681,7 +4714,8 @@ Function "format" can't handle multiple octet code same as original Perl.
 =item * /o modifier of m/$re/o, s/$re/foo/o and qr/$re/o
 
 /o modifier doesn't do operation the same as the expectation on perl5.6.1.
-The latest value of variable $re is used as a regular expression.
+The latest value of variable $re is used as a regular expression. This will not
+actually become a problem. Because when you use /o, you are sure not to change $re.
 
 =item * chdir
 
@@ -4939,17 +4973,22 @@ programming environment like at that time.
  Pages: 172
  T1008901080816 ZASSHI 08901-8
  http://ascii.asciimw.jp/books/magazines/unix.shtml
- 
+
  Yet Another JPerl family
  http://search.cpan.org/dist/Big5Plus/
  http://search.cpan.org/dist/EUCJP/
  http://search.cpan.org/dist/GB18030/
  http://search.cpan.org/dist/HP15/
  http://search.cpan.org/dist/INFORMIXV6ALS/
+ http://search.cpan.org/dist/Latin1/
+ http://search.cpan.org/dist/OldUTF8/
  http://search.cpan.org/dist/Big5Plus/
  http://search.cpan.org/dist/UHC/
  http://search.cpan.org/dist/UTF2/
+
+ Other Tools
  http://search.cpan.org/dist/jacode/
+ http://search.cpan.org/dist/Char/
 
 =head1 ACKNOWLEDGEMENTS
 

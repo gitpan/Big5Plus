@@ -1,5 +1,14 @@
 Revision history for this software.
 
+0.54  2010/04/02 00:00:00
+	- fix /i modifier with character class '[ccc]' in regexp.
+	- support old UTF-8.
+	; created by INABA Hitoshi
+
+0.53  2010/04/01 00:00:00
+	- support Latin-1.
+	; created by INABA Hitoshi
+
 0.52  2010/03/17 00:00:00
 	- bugfix ${ foo } in regexp.
 	- remove modules (re.pm, Fcntl.pm and Symbol.pm).
