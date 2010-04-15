@@ -18,7 +18,7 @@ use 5.00503;
 
 BEGIN { eval q{ use vars qw($VERSION $_warning) } }
 
-$VERSION = sprintf '%d.%02d', q$Revision: 0.54 $ =~ m/(\d+)/xmsg;
+$VERSION = sprintf '%d.%02d', q$Revision: 0.55 $ =~ m/(\d+)/xmsg;
 
 # poor Symbol.pm - substitute of real Symbol.pm
 BEGIN {
@@ -4497,7 +4497,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
   otherwise (and puts the error code into $!).
 
   This function can't function when the $dirname ends with chr(0x5C) on perl5.006,
-  perl5.008, perl5.010 on MSWin32.
+  perl5.008, perl5.010, perl5.012 on MSWin32.
 
 =item do file
 
