@@ -18,7 +18,7 @@ use 5.00503;
 
 BEGIN { eval q{ use vars qw($VERSION $_warning) } }
 
-$VERSION = sprintf '%d.%02d', q$Revision: 0.55 $ =~ m/(\d+)/xmsg;
+$VERSION = sprintf '%d.%02d', q$Revision: 0.56 $ =~ m/(\d+)/xmsg;
 
 # poor Symbol.pm - substitute of real Symbol.pm
 BEGIN {
@@ -895,6 +895,13 @@ sub Ebig5plus::ignorecase(@) {
             # open character class [...]
             if ($char[$i] eq '[') {
                 my $left = $i;
+
+                # [] make die "unmatched [] in regexp ..."
+
+                if ($char[$i+1] eq ']') {
+                    $i++;
+                }
+
                 while (1) {
                     if (++$i > $#char) {
                         croak "$0: unmatched [] in regexp";
@@ -927,6 +934,13 @@ sub Ebig5plus::ignorecase(@) {
             # open character class [^...]
             elsif ($char[$i] eq '[^') {
                 my $left = $i;
+
+                # [^] make die "unmatched [] in regexp ..."
+
+                if ($char[$i+1] eq ']') {
+                    $i++;
+                }
+
                 while (1) {
                     if (++$i > $#char) {
                         croak "$0: unmatched [] in regexp";
@@ -975,6 +989,18 @@ sub Ebig5plus::ignorecase(@) {
                 '\V' => '(?:[\x81-\xFE][\x00-\xFF]|[^\x0C\x0A\x0D])',
                 '\h' => '[\x09\x20]',
                 '\v' => '[\x0C\x0A\x0D]',
+
+                # \b \B
+                #
+                # P.131 Word boundaries: \b, \B, \<, \>, ...
+                # in Chapter 3: Overview of Regular Expression Features and Flavors
+                # of ISBN 0-596-00289-0 Mastering Regular Expressions, Second edition
+
+                # '\b' => '(?:(?<=\A|\W)(?=\w)|(?<=\w)(?=\W|\z))',
+                '\b' => '(?:(?:\A|(?<=[\x81-\xFE][\x00-\xFF])|(?<=[^0-9A-Z_a-z]))(?=[0-9A-Z_a-z])|(?<=[0-9A-Z_a-z])(?=[\x81-\xFE][\x00-\xFF]|[^0-9A-Z_a-z]|\z))',
+
+                # '\B' => '(?:(?<=\w)(?=\w)|(?<=\W)(?=\W))',
+                '\B' => '(?:(?<=[0-9A-Z_a-z])(?=[0-9A-Z_a-z])|(?:(?<=[\x81-\xFE][\x00-\xFF])|(?<=[^0-9A-Z_a-z]))(?=[\x81-\xFE][\x00-\xFF]|[^0-9A-Z_a-z]))',
 
                 }->{$char[$i]}
             ) {
