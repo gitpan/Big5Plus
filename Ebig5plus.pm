@@ -10,6 +10,11 @@ package Ebig5plus;
 ######################################################################
 
 use 5.00503;
+BEGIN {
+    my $PERL5LIB = __FILE__;
+    $PERL5LIB =~ s{[^/]*$}{Big5Plus};
+    unshift @INC, $PERL5LIB;
+}
 
 # 12.3. Delaying use Until Runtime
 # in Chapter 12. Packages, Libraries, and Modules
@@ -18,7 +23,7 @@ use 5.00503;
 
 BEGIN { eval q{ use vars qw($VERSION $_warning) } }
 
-$VERSION = sprintf '%d.%02d', q$Revision: 0.56 $ =~ m/(\d+)/xmsg;
+$VERSION = sprintf '%d.%02d', q$Revision: 0.57 $ =~ m/(\d+)/xmsg;
 
 # poor Symbol.pm - substitute of real Symbol.pm
 BEGIN {
@@ -3867,7 +3872,7 @@ sub Ebig5plus::require(;$) {
     # jacode.pl
     # http://search.cpan.org/dist/jacode/
 
-    if (m{ \b (?: jcode\.pl | jacode\.pl) \z }oxms) {
+    if (m{ \b (?: jcode\.pl | jacode\.pl ) \z }oxms) {
         return CORE::require($_);
     }
 

@@ -6,6 +6,7 @@ perl512.bat
 perl64.bat
 Changes
 Makefile.PL
+pMakefile.PL
 MANIFEST
 test.pl
 README

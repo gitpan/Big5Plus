@@ -1,12 +1,13 @@
 --- #YAML:1.0
 name: Big5Plus
 abstract: Source code filter for Big5Plus script
-version: 0.56
+version: 0.57
 author:
   - INABA Hitoshi <ina@cpan.org>
 license: perl
 distribution_type: script
 requires:
+  ExtUtils::MakeMaker: 5.4302
   Archive::Tar: 0.072
   Compress::Zlib: 1.03
   Config: 0
