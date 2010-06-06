@@ -1,5 +1,9 @@
 Revision history for this software.
 
+0.58  2010/06/07 00:00:00
+	- fix escapeshellcmd.
+	; created by INABA Hitoshi
+
 0.57  2010/06/02 00:00:00
 	- do BEGIN { unshift @INC, '/Perl/site/lib/Sjis'; } in Esjis.pm.
 	- support 'no Module'.

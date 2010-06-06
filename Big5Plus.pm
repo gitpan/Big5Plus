@@ -19,7 +19,7 @@ use Ebig5plus;
 
 BEGIN { eval q{ use vars qw($VERSION $_warning) } }
 
-$VERSION = sprintf '%d.%02d', q$Revision: 0.57 $ =~ m/(\d+)/oxmsg;
+$VERSION = sprintf '%d.%02d', q$Revision: 0.58 $ =~ m/(\d+)/oxmsg;
 
 # poor Symbol.pm - substitute of real Symbol.pm
 BEGIN {
@@ -299,7 +299,7 @@ else {
 # escape shell command line
 sub escapeshellcmd {
     my($word) = @_;
-    $word =~ s/([\t\n\r\x20!"#$%&'()*+;<=>?\[\\\]^`{|}~\x7F\xFF])/\\$1/g;
+    $word =~ s/([\t\n\r\x20!"#\$%&'()*+;<=>?\[\\\]^`{|}~\x7F\xFF])/\\$1/g;
     return $word;
 }
 
@@ -4718,6 +4718,8 @@ You need copy built-in standard module to /Perl/site/lib/Big5Plus and change
 Back to and see 'Escaping Your Script'. Enjoy hacking!!
 
 =head1 CHARACTER ORIENTED FUNCTIONS
+
+=over 2
 
 =item Order of Character
 
