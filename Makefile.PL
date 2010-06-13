@@ -3,11 +3,11 @@ use ExtUtils::MakeMaker;
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
 WriteMakefile(
-    'NAME'             => 'Sjis',
-    'VERSION_FROM'     => 'Sjis.pm', # finds $VERSION
+    'NAME'             => 'Big5Plus',
+    'VERSION_FROM'     => 'Big5Plus.pm', # finds $VERSION
     ($] >= 5.005 ?                   # Add these new keywords supported since 5.005
       ('PREREQ_PM'     => {},        # e.g., Module::Name => 1.1
-       'ABSTRACT_FROM' => 'Sjis.pm', # retrieve abstract from module
+       'ABSTRACT_FROM' => 'Big5Plus.pm', # retrieve abstract from module
        'AUTHOR'        => 'ina <ina@cpan.org>',
       )
       :

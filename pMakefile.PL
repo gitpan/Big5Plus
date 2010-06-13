@@ -145,7 +145,10 @@ for my $target (@ARGV) {
         my $dirname  = dirname($file[0]);
         my $basename = basename($file[0], '.pm','.pl','.bat');
         my $tardir;
-        if ($dirname ne '.') {
+        if ($dirname eq 'lib') {
+            $tardir = "$basename-$version";
+        }
+        elsif ($dirname ne '.') {
             $dirname =~ tr#/#-#;
             $tardir = "$dirname-$basename-$version";
         }

@@ -23,7 +23,7 @@ BEGIN {
 
 BEGIN { eval q{ use vars qw($VERSION $_warning) } }
 
-$VERSION = sprintf '%d.%02d', q$Revision: 0.58 $ =~ m/(\d+)/xmsg;
+$VERSION = sprintf '%d.%02d', q$Revision: 0.59 $ =~ m/(\d+)/xmsg;
 
 # poor Symbol.pm - substitute of real Symbol.pm
 BEGIN {
@@ -104,6 +104,16 @@ my $is_shiftjis_family = 0;
 my $is_eucjp_family    = 0;
 
 if (0) {
+}
+
+# Big5HKSCS
+elsif (__PACKAGE__ eq 'Ebig5hkscs') {
+    %range_tr = (
+        1 => [ [0x00..0x80,0xFF],
+             ],
+        2 => [ [0x81..0xFE],[0x40..0x7E,0xA1..0xFE],
+             ],
+    );
 }
 
 # Big5Plus

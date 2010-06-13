@@ -1,5 +1,13 @@
 Revision history for this software.
 
+0.59  2010/06/14 00:00:00
+	- move *.pm files to /lib.
+	- fix Makefile.PL.
+	- fix m/[$@]/ to m/[\$\@]/.
+	- add HP15 and INFORMIXV6ALS test.
+	- support Big5-HKSCS.
+	; created by INABA Hitoshi
+
 0.58  2010/06/07 00:00:00
 	- fix escapeshellcmd.
 	; created by INABA Hitoshi

@@ -52,7 +52,7 @@ To install this software without make, type the following:
 PROGRAM COMPOSITION
 
    Big5Plus.pm  --- source code filter for Big5Plus script
-   EBig5Plus.pm --- run-time routines for Big5Plus.pm
+   Ebig5plus.pm --- run-time routines for Big5Plus.pm
    perl58.bat   --- find and run perl5.8  without %PATH% settings
    perl510.bat  --- find and run perl5.10 without %PATH% settings
    perl512.bat  --- find and run perl5.12 without %PATH% settings

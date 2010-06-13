@@ -6,9 +6,9 @@
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN { $| = 1; print "1..1\n"; }
-
 use Big5Plus;
+
+BEGIN { $| = 1; print "1..1\n"; }
 
 print "ok 1\n";
 
