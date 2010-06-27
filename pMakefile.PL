@@ -158,7 +158,7 @@ for my $target (@ARGV) {
         rmtree($tardir,0,0);
 
         # rewrite META.yml file
-        if(my($metayml) = grep(/^META\.yml$/i,@file)) {
+        if (my($metayml) = grep(/^META\.yml$/i,@file)) {
             if (open(FH_METAYML, $metayml)) {
                 $_ = join('',<FH_METAYML>);
                 close FH_METAYML;

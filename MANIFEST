@@ -1,5 +1,5 @@
-lib/Big5Plus.pm
-lib/Ebig5plus.pm
+Big5Plus.pm
+Ebig5plus.pm
 perl58.bat
 perl510.bat
 perl512.bat
