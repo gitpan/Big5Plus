@@ -23,7 +23,7 @@ BEGIN {
 
 BEGIN { eval q{ use vars qw($VERSION $_warning) } }
 
-$VERSION = sprintf '%d.%02d', q$Revision: 0.60 $ =~ m/(\d+)/xmsg;
+$VERSION = sprintf '%d.%02d', q$Revision: 0.62 $ =~ m/(\d+)/xmsg;
 
 # poor Symbol.pm - substitute of real Symbol.pm
 BEGIN {
@@ -809,23 +809,18 @@ sub Ebig5plus::rindex($$;$) {
 # Big5Plus regexp capture
 #
 {
-###if MULTIBYTE_ANCHORING
     # 10.3. Creating Persistent Private Variables
     # in Chapter 10. Subroutines
     # of ISBN 0-596-00313-7 Perl Cookbook, 2nd Edition.
 
     my $last_s_matched = 0;
 
-###endif
     sub Ebig5plus::capture($) {
-###if MULTIBYTE_ANCHORING
         if ($last_s_matched and ($_[0] =~ m/\A [1-9][0-9]* \z/oxms)) {
             return $_[0] + 1;
         }
-###endif
         return $_[0];
     }
-###if MULTIBYTE_ANCHORING
 
     # Big5Plus regexp mark last m// or qr// matched
     sub Ebig5plus::m_matched() {
@@ -845,7 +840,6 @@ sub Ebig5plus::rindex($$;$) {
 
     @Ebig5plus::m_matched = (qr/(?{Ebig5plus::m_matched})/);
     @Ebig5plus::s_matched = (qr/(?{Ebig5plus::s_matched})/);
-###endif
 }
 
 #
@@ -974,10 +968,10 @@ sub Ebig5plus::ignorecase(@) {
                 # of ISBN 0-596-00289-0 Mastering Regular Expressions, Second edition
 
                 # '\b' => '(?:(?<=\A|\W)(?=\w)|(?<=\w)(?=\W|\z))',
-                '\b' => '(?:(?:\A|(?<=[\x81-\xFE][\x00-\xFF])|(?<=[^0-9A-Z_a-z]))(?=[0-9A-Z_a-z])|(?<=[0-9A-Z_a-z])(?=[\x81-\xFE][\x00-\xFF]|[^0-9A-Z_a-z]|\z))',
+                '\b' => '(?:\A(?=[0-9A-Z_a-z])|(?<=[\x00-\x2F\x40\x5B-\x5E\x60\x7B-\xFF])(?=[0-9A-Z_a-z])|(?<=[0-9A-Z_a-z])(?=[\x00-\x2F\x40\x5B-\x5E\x60\x7B-\xFF]|\z))',
 
                 # '\B' => '(?:(?<=\w)(?=\w)|(?<=\W)(?=\W))',
-                '\B' => '(?:(?<=[0-9A-Z_a-z])(?=[0-9A-Z_a-z])|(?:(?<=[\x81-\xFE][\x00-\xFF])|(?<=[^0-9A-Z_a-z]))(?=[\x81-\xFE][\x00-\xFF]|[^0-9A-Z_a-z]))',
+                '\B' => '(?:(?<=[0-9A-Z_a-z])(?=[0-9A-Z_a-z])|(?<=[\x00-\x2F\x40\x5B-\x5E\x60\x7B-\xFF])(?=[\x00-\x2F\x40\x5B-\x5E\x60\x7B-\xFF]))',
 
                 }->{$char[$i]}
             ) {
