@@ -1,6 +1,6 @@
 NAME
 
-       Big5Plus - "Yet Another JPerl" Source code filter for Big5Plus script
+       Big5Plus - Source code filter for Big5Plus script
 
 SYNOPSIS
 
@@ -18,7 +18,7 @@ SYNOPSIS
 
 DESCRIPTION
 
-      This software is "Yet Another JPerl" written by Perl.
+      This software is "JPerl on the Modern Perl" written by Perl.
       We can write the script in Big5Plus again.
 
       This software treats Big5Plus directly. Therefore, there is not UTF8 flag.

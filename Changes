@@ -1,5 +1,11 @@
 Revision history for this software.
 
+0.64  2010/09/14 00:00:00
+	- support SjisTk module.
+	- support \l, \u, lcfirst and ucfirst.
+	- add test of Latin1.
+	; created by INABA Hitoshi
+
 0.63  2010/07/04 00:00:00
 	- add test of Big5Plus, Big5HKSCS, GB18030 and UHC.
 	; created by INABA Hitoshi
