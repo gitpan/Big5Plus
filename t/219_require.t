@@ -7,7 +7,8 @@ use Big5Plus;
 use lib qw(./);
 print "1..1\n";
 
-if ($^O !~ /\A (?: MSWin32 | NetWare | symbian | dos ) \z/oxms) {
+my $chcp = `chcp`;
+if ($^O !~ /\A (?: MSWin32 | NetWare | symbian | dos ) \z/oxms or $chcp !~ /932|950/oxms) {
     print "ok - 1 # SKIP $^X $0\n";
     exit;
 }

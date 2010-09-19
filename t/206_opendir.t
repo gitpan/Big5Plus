@@ -6,7 +6,8 @@ my $__FILE__ = __FILE__;
 use Big5Plus;
 print "1..1\n";
 
-if ($^O !~ /\A (?: MSWin32 | NetWare | symbian | dos ) \z/oxms) {
+my $chcp = `chcp`;
+if ($^O !~ /\A (?: MSWin32 | NetWare | symbian | dos ) \z/oxms or $chcp !~ /932|950/oxms) {
     print "ok - 1 # SKIP $^X $__FILE__\n";
     exit;
 }

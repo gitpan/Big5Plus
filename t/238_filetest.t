@@ -8,7 +8,8 @@ my $__FILE__ = __FILE__;
 use Big5Plus;
 print "1..52\n";
 
-if ($^O !~ /\A (?: MSWin32 | NetWare | symbian | dos ) \z/oxms) {
+my $chcp = `chcp`;
+if ($^O !~ /\A (?: MSWin32 | NetWare | symbian | dos ) \z/oxms or $chcp !~ /932|950/oxms) {
     for my $tno (1..52) {
         print "ok - $tno # SKIP $^X $0\n";
     }
