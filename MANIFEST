@@ -1,5 +1,7 @@
 Big5Plus.pm
 Ebig5plus.pm
+warnings.pm_
+warnings/register.pm_
 perl58.bat
 perl510.bat
 perl512.bat
@@ -254,3 +256,7 @@ t/240_filetest.t
 t/241_filetest.t
 t/242_filetest.t
 t/243_filetest.t
+t/244_3open.t
+t/245_2binmode.t
+t/246_utf8.t
+t/247_bytes.t

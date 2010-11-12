@@ -385,8 +385,8 @@ else {
     print "not ok - 52 -C DIR1 == -C DIR2 $^X $__FILE__\n";
 }
 
-closedir(DIR1,'directory');
-closedir(DIR2,'D機能');
+closedir(DIR1);
+closedir(DIR2);
 rmdir('directory');
 rmdir('D機能');
 

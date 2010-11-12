@@ -1,5 +1,21 @@
 Revision history for this software.
 
+0.68  2010/11/09 00:00:00
+	- re-correct 244_3open.t and 245_2binmode.t.
+	; created by INABA Hitoshi
+
+0.67  2010/11/08 00:00:00
+	- correct 244_3open.t and 245_2binmode.t.
+	; created by INABA Hitoshi
+
+0.66  2010/11/07 00:00:00
+	- emulate two-argument binmode() on perl5.005.
+	- emulate three-argument open() on perl5.005.
+	- dummy functions of utf8.pm and bytes.pm.
+	- correct write locking routine.
+	- bundle warnings.pm_ and warnings/register.pm_.
+	; created by INABA Hitoshi
+
 0.65  2010/09/16 00:00:00
 	- check code page on DOS-like system before test.
 	; created by INABA Hitoshi
