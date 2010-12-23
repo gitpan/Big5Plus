@@ -17,7 +17,7 @@ use 5.00503;
 # (and so on)
 
 BEGIN { eval q{ use vars qw($VERSION) } }
-$VERSION = sprintf '%d.%02d', q$Revision: 0.68 $ =~ m/(\d+)/xmsg;
+$VERSION = sprintf '%d.%02d', q$Revision: 0.69 $ =~ m/(\d+)/xmsg;
 
 # use strict qw(subs vars);
 BEGIN {
@@ -26,7 +26,7 @@ BEGIN {
 
 BEGIN {
     my $PERL5LIB = __FILE__;
-    $PERL5LIB =~ s{[^/]*$}{Big5Plus};
+        $PERL5LIB =~ s{[^/]*$}{Big5Plus};
     unshift @INC, $PERL5LIB;
 }
 
@@ -35,7 +35,7 @@ BEGIN {
     # instead of utf8.pm
     eval q{
         no warnings qw(redefine);
-        *utf8::upgrade   = sub { length $_[0] };
+        *utf8::upgrade   = sub { CORE::length $_[0] };
         *utf8::downgrade = sub { 1 };
         *utf8::encode    = sub {   };
         *utf8::decode    = sub { 1 };
@@ -43,7 +43,7 @@ BEGIN {
         *utf8::valid     = sub { 1 };
     };
     if ($@) {
-        *utf8::upgrade   = sub { length $_[0] };
+        *utf8::upgrade   = sub { CORE::length $_[0] };
         *utf8::downgrade = sub { 1 };
         *utf8::encode    = sub {   };
         *utf8::decode    = sub { 1 };
@@ -3511,7 +3511,7 @@ sub _dosglob {
     # in Chapter 7. File Access
     # of ISBN 0-596-00313-7 Perl Cookbook, 2nd Edition.
     #
-    # and File::HomeDir::Windows module
+    # and File::HomeDir, File::HomeDir::Windows module
 
     # DOS like system
     if ($^O =~ /\A (?: MSWin32 | NetWare | symbian | dos ) \z/oxms) {
@@ -3531,7 +3531,7 @@ sub _dosglob {
 
     # if we're just beginning, do it all first
     if ($iter{$cxix} == 0) {
-        $entries{$cxix} = [ _do_glob(1, _parse_line($expr)) ];
+            $entries{$cxix} = [ _do_glob(1, _parse_line($expr)) ];
     }
 
     # chuck it all out, quick or slow
@@ -3645,16 +3645,15 @@ OUTER:
         my $pattern = '';
         while ($expr =~ m/ \G ($q_char) /oxgc) {
             my $char = $1;
-            my $uc = Ebig5plus::uc($char);
-            if ($uc ne $char) {
-                $pattern .= $uc;
-            }
-            elsif ($char eq '*') {
+            if ($char eq '*') {
                 $pattern .= "(?:$your_char)*",
             }
             elsif ($char eq '?') {
                 $pattern .= "(?:$your_char)?",  # DOS style
 #               $pattern .= "(?:$your_char)",   # UNIX style
+            }
+            elsif ((my $uc = Ebig5plus::uc($char)) ne $char) {
+                $pattern .= $uc;
             }
             else {
                 $pattern .= quotemeta $char;
@@ -3955,7 +3954,13 @@ sub Ebig5plus::do($) {
 ITER_DO:
     {
         for my $prefix (@INC) {
-            $realfilename = "$prefix/$filename";
+            if ($^O eq 'MacOS') {
+                $realfilename = "$prefix$filename";
+            }
+            else {
+                $realfilename = "$prefix/$filename";
+            }
+
             if (Ebig5plus::f($realfilename)) {
 
                 my $script = '';
@@ -3972,7 +3977,13 @@ ITER_DO:
                 if (Ebig5plus::e("$realfilename.e")) {
                     my $fh = gensym();
                     if (CORE::open $fh, "$realfilename.e") {
-                        if (exists $ENV{'SJIS_NONBLOCK'}) {
+                        if ($^O eq 'MacOS') {
+                            eval q{
+                                require Mac::Files;
+                                Mac::Files::FSpSetFLock("$realfilename.e");
+                            };
+                        }
+                        elsif (exists $ENV{'SJIS_NONBLOCK'}) {
 
                             # 7.18. Locking a File
                             # in Chapter 7. File Access
@@ -3991,6 +4002,12 @@ ITER_DO:
                         }
                         local $/ = undef; # slurp mode
                         $script = <$fh>;
+                        if ($^O eq 'MacOS') {
+                            eval q{
+                                require Mac::Files;
+                                Mac::Files::FSpRstFLock("$realfilename.e");
+                            };
+                        }
                         close $fh;
                     }
                 }
@@ -4005,10 +4022,16 @@ ITER_DO:
                         CORE::require Big5Plus;
                         $script = Big5Plus::escape_script($script);
                         my $fh = gensym();
-                        if ((eval q{ use Fcntl qw(O_WRONLY O_CREAT); 1 } and CORE::sysopen($fh, "$realfilename.e", &O_WRONLY|&O_CREAT))
-                            or CORE::open($fh, ">$realfilename.e")
+                        if ((eval q{ use Fcntl qw(O_WRONLY O_APPEND O_CREAT); 1 } and CORE::sysopen($fh, "$realfilename.e", &O_WRONLY|&O_APPEND|&O_CREAT))
+                            or CORE::open($fh, ">>$realfilename.e")
                         ) {
-                            if (exists $ENV{'SJIS_NONBLOCK'}) {
+                            if ($^O eq 'MacOS') {
+                                eval q{
+                                    require Mac::Files;
+                                    Mac::Files::FSpSetFLock("$realfilename.e");
+                                };
+                            }
+                            elsif (exists $ENV{'SJIS_NONBLOCK'}) {
                                 eval q{
                                     unless (flock($fh, LOCK_EX | LOCK_NB)) {
                                         carp "$__FILE__: Can't immediately write-lock the file: $realfilename.e";
@@ -4019,11 +4042,15 @@ ITER_DO:
                             else {
                                 eval q{ flock($fh, LOCK_EX) };
                             }
-
                             truncate($fh, 0) or croak "$__FILE__: Can't truncate file: $realfilename.e";
                             seek($fh, 0, 0)  or croak "$__FILE__: Can't seek file: $realfilename.e";
-
                             print {$fh} $script;
+                            if ($^O eq 'MacOS') {
+                                eval q{
+                                    require Mac::Files;
+                                    Mac::Files::FSpRstFLock("$realfilename.e");
+                                };
+                            }
                             close $fh;
                         }
                     }
@@ -4070,7 +4097,13 @@ sub Ebig5plus::require(;$) {
 ITER_REQUIRE:
     {
         for my $prefix (@INC) {
-            $realfilename = "$prefix/$_";
+            if ($^O eq 'MacOS') {
+                $realfilename = "$prefix$_";
+            }
+            else {
+                $realfilename = "$prefix/$_";
+            }
+
             if (Ebig5plus::f($realfilename)) {
 
                 my $script = '';
@@ -4087,7 +4120,13 @@ ITER_REQUIRE:
                 if (Ebig5plus::e("$realfilename.e")) {
                     my $fh = gensym();
                     CORE::open($fh, "$realfilename.e") or croak "Can't open file: $realfilename.e";
-                    if (exists $ENV{'SJIS_NONBLOCK'}) {
+                    if ($^O eq 'MacOS') {
+                        eval q{
+                            require Mac::Files;
+                            Mac::Files::FSpSetFLock("$realfilename.e");
+                        };
+                    }
+                    elsif (exists $ENV{'SJIS_NONBLOCK'}) {
                         eval q{
                             unless (flock($fh, LOCK_SH | LOCK_NB)) {
                                 carp "$__FILE__: Can't immediately read-lock the file: $realfilename.e";
@@ -4100,6 +4139,12 @@ ITER_REQUIRE:
                     }
                     local $/ = undef; # slurp mode
                     $script = <$fh>;
+                    if ($^O eq 'MacOS') {
+                        eval q{
+                            require Mac::Files;
+                            Mac::Files::FSpRstFLock("$realfilename.e");
+                        };
+                    }
                     close($fh) or croak "Can't close file: $realfilename";
                 }
                 else {
@@ -4113,14 +4158,18 @@ ITER_REQUIRE:
                         CORE::require Big5Plus;
                         $script = Big5Plus::escape_script($script);
                         my $fh = gensym();
-
-                        if (eval q{ use Fcntl qw(O_WRONLY O_CREAT); 1 } and CORE::sysopen($fh,"$realfilename.e",&O_WRONLY|&O_CREAT)) {
+                        if (eval q{ use Fcntl qw(O_WRONLY O_APPEND O_CREAT); 1 } and CORE::sysopen($fh,"$realfilename.e",&O_WRONLY|&O_APPEND|&O_CREAT)) {
                         }
                         else {
-                            CORE::open($fh, ">$realfilename.e") or croak "Can't write open file: $realfilename.e";
+                            CORE::open($fh, ">>$realfilename.e") or croak "Can't write open file: $realfilename.e";
                         }
-
-                        if (exists $ENV{'SJIS_NONBLOCK'}) {
+                        if ($^O eq 'MacOS') {
+                            eval q{
+                                require Mac::Files;
+                                Mac::Files::FSpSetFLock("$realfilename.e");
+                            };
+                        }
+                        elsif (exists $ENV{'SJIS_NONBLOCK'}) {
                             eval q{
                                 unless (flock($fh, LOCK_EX | LOCK_NB)) {
                                     carp "$__FILE__: Can't immediately write-lock the file: $realfilename.e";
@@ -4131,11 +4180,15 @@ ITER_REQUIRE:
                         else {
                             eval q{ flock($fh, LOCK_EX) };
                         }
-
                         truncate($fh, 0) or croak "$__FILE__: Can't truncate file: $realfilename.e";
                         seek($fh, 0, 0)  or croak "$__FILE__: Can't seek file: $realfilename.e";
-
                         print {$fh} $script;
+                        if ($^O eq 'MacOS') {
+                            eval q{
+                                require Mac::Files;
+                                Mac::Files::FSpRstFLock("$realfilename.e");
+                            };
+                        }
                         close($fh) or croak "Can't close file: $realfilename";
                     }
                 }
@@ -4306,15 +4359,6 @@ sub Ebig5plus::open(*;$@) {
     else {
         croak "$0: usage: open(FILEHANDLE [,MODE [,EXPR]])";
     }
-}
-
-#
-# escape shell command line
-#
-sub escapeshellcmd {
-    my($word) = @_;
-    $word =~ s/([\t\n\r\x20!"#\$%&'()*+;<=>?\[\\\]^`{|}~\x7F\xFF])/\\$1/g;
-    return $word;
 }
 
 #
@@ -4812,11 +4856,13 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
   successive name on each call. If $string is omitted, $_ is globbed instead.
   This function function when the pathname ends with chr(0x5C) on MSWin32.
 
-  For example, C<<..\\l*b\\file/*glob.p?>> will work as expected (in that it will
-  find something like '..\lib\File/DosGlob.pm' alright). Note that all path
-  components are case-insensitive, and that backslashes and forward slashes are
-  both accepted, and preserved. You may have to double the backslashes if you are
-  putting them in literally, due to double-quotish parsing of the pattern by perl.
+  For example, C<<..\\l*b\\file/*glob.p?>> on MSWin32 or UNIX will work as
+  expected (in that it will find something like '..\lib\File/DosGlob.pm'
+  alright).
+  Note that all path components are
+  case-insensitive, and that backslashes and forward slashes are both accepted,
+  and preserved. You may have to double the backslashes if you are putting them in
+  literally, due to double-quotish parsing of the pattern by perl.
   A tilde ("~") expands to the current user's home directory.
 
   Spaces in the argument delimit distinct patterns, so C<glob('*.exe *.dll')> globs

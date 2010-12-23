@@ -1,5 +1,10 @@
 Revision history for this software.
 
+0.69  2010/12/21 00:00:00
+	- support MacOS by Sjis software.
+	- correct open mode before flock().
+	; beside "escape" by Delight Prescott of MacPerl Power and Ease
+
 0.68  2010/11/09 00:00:00
 	- re-correct 244_3open.t and 245_2binmode.t.
 	; created by INABA Hitoshi

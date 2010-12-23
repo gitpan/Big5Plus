@@ -10,11 +10,11 @@ SYNOPSIS
 
     At command prompt:
 
-      perl.exe  yourscript.pl  wild*  *card  and  '*quote*'  are  ok  ...
-      perl58    yourscript.pl  wild*  *card  and  '*quote*'  are  ok  ...
-      perl510   yourscript.pl  wild*  *card  and  '*quote*'  are  ok  ...
-      perl512   yourscript.pl  wild*  *card  and  '*quote*'  are  ok  ...
-      perl64    yourscript.pl  wild*  *card  and  '*quote*'  are  ok  ...
+      perl.exe  yourscript.pl  wild*  *card  and  '*quote*'  on MSWin32
+      perl58    yourscript.pl  wild*  *card  and  '*quote*'  on MSWin32
+      perl510   yourscript.pl  wild*  *card  and  '*quote*'  on MSWin32
+      perl512   yourscript.pl  wild*  *card  and  '*quote*'  on MSWin32
+      perl64    yourscript.pl  wild*  *card  and  '*quote*'  on MSWin32
 
 DESCRIPTION
 
