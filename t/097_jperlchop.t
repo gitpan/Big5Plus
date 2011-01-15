@@ -4,7 +4,7 @@ die "This file is not encoded in Big5Plus.\n" if q{‚ } ne "\x82\xa0";
 use Big5Plus;
 print "1..4\n";
 
-my $__FILE__ = $__FILE__;
+my $__FILE__ = __FILE__;
 
 #
 # chop, chomp

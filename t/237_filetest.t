@@ -6,10 +6,10 @@ die "This file is not encoded in Big5Plus.\n" if q{‚ } ne "\x82\xa0";
 my $__FILE__ = __FILE__;
 
 use Ebig5plus;
-print "1..52\n";
+print "1..48\n";
 
 if ($^O !~ /\A (?: MSWin32 | NetWare | symbian | dos ) \z/oxms) {
-    for my $tno (1..52) {
+    for my $tno (1..48) {
         print "ok - $tno # SKIP $^X $0\n";
     }
     exit;
@@ -258,131 +258,102 @@ else {
     print "not ok - 34 Ebig5plus::c FILE == -c FILE $^X $__FILE__\n";
 }
 
-local $^W = 0;
-if (((Ebig5plus::t 'file') ne '') == ((-t 'file') ne '')) {
-    print "ok - 35 Ebig5plus::t 'file' == -t 'file' $^X $__FILE__\n";
-}
-else {
-    print "not ok - 35 Ebig5plus::t 'file' == -t 'file' $^X $__FILE__\n";
-}
-
-if (((Ebig5plus::t FILE) ne '') == ((-t FILE) ne '')) {
-    print "ok - 36 Ebig5plus::t FILE == -t FILE $^X $__FILE__\n";
-}
-else {
-    print "not ok - 36 Ebig5plus::t FILE == -t FILE $^X $__FILE__\n";
-}
-
 if (((Ebig5plus::u 'file') ne '') == ((-u 'file') ne '')) {
-    print "ok - 37 Ebig5plus::u 'file' == -u 'file' $^X $__FILE__\n";
+    print "ok - 35 Ebig5plus::u 'file' == -u 'file' $^X $__FILE__\n";
 }
 else {
-    print "not ok - 37 Ebig5plus::u 'file' == -u 'file' $^X $__FILE__\n";
+    print "not ok - 35 Ebig5plus::u 'file' == -u 'file' $^X $__FILE__\n";
 }
 
 if (((Ebig5plus::u FILE) ne '') == ((-u FILE) ne '')) {
-    print "ok - 38 Ebig5plus::u FILE == -u FILE $^X $__FILE__\n";
+    print "ok - 36 Ebig5plus::u FILE == -u FILE $^X $__FILE__\n";
 }
 else {
-    print "not ok - 38 Ebig5plus::u FILE == -u FILE $^X $__FILE__\n";
+    print "not ok - 36 Ebig5plus::u FILE == -u FILE $^X $__FILE__\n";
 }
 
 if (((Ebig5plus::g 'file') ne '') == ((-g 'file') ne '')) {
-    print "ok - 39 Ebig5plus::g 'file' == -g 'file' $^X $__FILE__\n";
+    print "ok - 37 Ebig5plus::g 'file' == -g 'file' $^X $__FILE__\n";
 }
 else {
-    print "not ok - 39 Ebig5plus::g 'file' == -g 'file' $^X $__FILE__\n";
+    print "not ok - 37 Ebig5plus::g 'file' == -g 'file' $^X $__FILE__\n";
 }
 
 if (((Ebig5plus::g FILE) ne '') == ((-g FILE) ne '')) {
-    print "ok - 40 Ebig5plus::g FILE == -g FILE $^X $__FILE__\n";
+    print "ok - 38 Ebig5plus::g FILE == -g FILE $^X $__FILE__\n";
 }
 else {
-    print "not ok - 40 Ebig5plus::g FILE == -g FILE $^X $__FILE__\n";
-}
-
-if (((Ebig5plus::k 'file') ne '') == ((-k 'file') ne '')) {
-    print "ok - 41 Ebig5plus::k 'file' == -k 'file' $^X $__FILE__\n";
-}
-else {
-    print "not ok - 41 Ebig5plus::k 'file' == -k 'file' $^X $__FILE__\n";
-}
-
-if (((Ebig5plus::k FILE) ne '') == ((-k FILE) ne '')) {
-    print "ok - 42 Ebig5plus::k FILE == -k FILE $^X $__FILE__\n";
-}
-else {
-    print "not ok - 42 Ebig5plus::k FILE == -k FILE $^X $__FILE__\n";
+    print "not ok - 38 Ebig5plus::g FILE == -g FILE $^X $__FILE__\n";
 }
 
 if (((Ebig5plus::T 'file') ne '') == ((-T 'file') ne '')) {
-    print "ok - 43 Ebig5plus::T 'file' == -T 'file' $^X $__FILE__\n";
+    print "ok - 39 Ebig5plus::T 'file' == -T 'file' $^X $__FILE__\n";
 }
 else {
-    print "not ok - 43 Ebig5plus::T 'file' == -T 'file' $^X $__FILE__\n";
+    print "not ok - 39 Ebig5plus::T 'file' == -T 'file' $^X $__FILE__\n";
 }
 
 if (((Ebig5plus::T FILE) ne '') == ((-T FILE) ne '')) {
-    print "ok - 44 Ebig5plus::T FILE == -T FILE $^X $__FILE__\n";
+    print "ok - 40 Ebig5plus::T FILE == -T FILE $^X $__FILE__\n";
 }
 else {
-    print "not ok - 44 Ebig5plus::T FILE == -T FILE $^X $__FILE__\n";
+    print "not ok - 40 Ebig5plus::T FILE == -T FILE $^X $__FILE__\n";
 }
 
 if (((Ebig5plus::B 'file') ne '') == ((-B 'file') ne '')) {
-    print "ok - 45 Ebig5plus::B 'file' == -B 'file' $^X $__FILE__\n";
+    print "ok - 41 Ebig5plus::B 'file' == -B 'file' $^X $__FILE__\n";
 }
 else {
-    print "not ok - 45 Ebig5plus::B 'file' == -B 'file' $^X $__FILE__\n";
+    print "not ok - 41 Ebig5plus::B 'file' == -B 'file' $^X $__FILE__\n";
 }
 
 if (((Ebig5plus::B FILE) ne '') == ((-B FILE) ne '')) {
-    print "ok - 46 Ebig5plus::B FILE == -B FILE $^X $__FILE__\n";
+    print "ok - 42 Ebig5plus::B FILE == -B FILE $^X $__FILE__\n";
 }
 else {
-    print "not ok - 46 Ebig5plus::B FILE == -B FILE $^X $__FILE__\n";
+    print "not ok - 42 Ebig5plus::B FILE == -B FILE $^X $__FILE__\n";
 }
 
 if (((Ebig5plus::M 'file') ne '') == ((-M 'file') ne '')) {
-    print "ok - 47 Ebig5plus::M 'file' == -M 'file' $^X $__FILE__\n";
+    print "ok - 43 Ebig5plus::M 'file' == -M 'file' $^X $__FILE__\n";
 }
 else {
-    print "not ok - 47 Ebig5plus::M 'file' == -M 'file' $^X $__FILE__\n";
+    print "not ok - 43 Ebig5plus::M 'file' == -M 'file' $^X $__FILE__\n";
 }
 
 if (((Ebig5plus::M FILE) ne '') == ((-M FILE) ne '')) {
-    print "ok - 48 Ebig5plus::M FILE == -M FILE $^X $__FILE__\n";
+    print "ok - 44 Ebig5plus::M FILE == -M FILE $^X $__FILE__\n";
 }
 else {
-    print "not ok - 48 Ebig5plus::M FILE == -M FILE $^X $__FILE__\n";
+    print "not ok - 44 Ebig5plus::M FILE == -M FILE $^X $__FILE__\n";
 }
 
 if (((Ebig5plus::A 'file') ne '') == ((-A 'file') ne '')) {
-    print "ok - 49 Ebig5plus::A 'file' == -A 'file' $^X $__FILE__\n";
+    print "ok - 45 Ebig5plus::A 'file' == -A 'file' $^X $__FILE__\n";
 }
 else {
-    print "not ok - 49 Ebig5plus::A 'file' == -A 'file' $^X $__FILE__\n";
+    print "not ok - 45 Ebig5plus::A 'file' == -A 'file' $^X $__FILE__\n";
 }
 
 if (((Ebig5plus::A FILE) ne '') == ((-A FILE) ne '')) {
-    print "ok - 50 Ebig5plus::A FILE == -A FILE $^X $__FILE__\n";
+    print "ok - 46 Ebig5plus::A FILE == -A FILE $^X $__FILE__\n";
 }
 else {
-    print "not ok - 50 Ebig5plus::A FILE == -A FILE $^X $__FILE__\n";
+    print "not ok - 46 Ebig5plus::A FILE == -A FILE $^X $__FILE__\n";
 }
 
 if (((Ebig5plus::C 'file') ne '') == ((-C 'file') ne '')) {
-    print "ok - 51 Ebig5plus::C 'file' == -C 'file' $^X $__FILE__\n";
+    print "ok - 47 Ebig5plus::C 'file' == -C 'file' $^X $__FILE__\n";
 }
 else {
-    print "not ok - 51 Ebig5plus::C 'file' == -C 'file' $^X $__FILE__\n";
+    print "not ok - 47 Ebig5plus::C 'file' == -C 'file' $^X $__FILE__\n";
 }
 
 if (((Ebig5plus::C FILE) ne '') == ((-C FILE) ne '')) {
-    print "ok - 52 Ebig5plus::C FILE == -C FILE $^X $__FILE__\n";
+    print "ok - 48 Ebig5plus::C FILE == -C FILE $^X $__FILE__\n";
 }
 else {
-    print "not ok - 52 Ebig5plus::C FILE == -C FILE $^X $__FILE__\n";
+    print "not ok - 48 Ebig5plus::C FILE == -C FILE $^X $__FILE__\n";
 }
 
 close(FILE);

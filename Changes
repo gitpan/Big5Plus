@@ -1,5 +1,16 @@
 Revision history for this software.
 
+0.70  2011/01/14 00:00:00
+	- remove multibyte anchoring of UTF2 and OldUTF8.
+	- propagate @INC by -I switch from script.pl to script.pl.e.
+	- propagate $^W by -w switch from script.pl to script.pl.e.
+	- support chdir(\x5c ends path) by perl5.006 or perl5.00800 on MSWin32(jacode.pl library required).
+	- support chdir(\x5c ends long path) by perl5.008001 or later, perl5.010 or perl5.012 on MSWin32(Win32 module required).
+	- support GBK.
+	- bundle strict.pm_ as dummy strict.pm.
+	- add perl55.bat and perl56.bat.
+	; created by INABA Hitoshi
+
 0.69  2010/12/21 00:00:00
 	- support MacOS by Sjis software.
 	- correct open mode before flock().

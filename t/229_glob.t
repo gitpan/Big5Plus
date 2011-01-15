@@ -35,7 +35,7 @@ else {
 }
 
 # glob (2/2)
-my @glob = glob('./D機能/*');
+@glob = glob('./D機能/*');
 if (@glob) {
     print "ok - 2 glob (2/2) $^X $__FILE__\n";
 }

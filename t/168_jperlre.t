@@ -8,14 +8,14 @@ my $__FILE__ = __FILE__;
 
 if ('‚  ‚¢' =~ /(‚ [\s]‚¢)/) {
     if ("-" eq "-") {
-        print "ok - 1 $^X $__FILE__ ('‚  ‚¢' =~ /‚ [\s]‚¢/).\n";
+        print "ok - 1 $^X $__FILE__ ('‚  ‚¢' =~ /‚ [\\s]‚¢/).\n";
     }
     else {
-        print "not ok - 1 $^X $__FILE__ ('‚  ‚¢' =~ /‚ [\s]‚¢/).\n";
+        print "not ok - 1 $^X $__FILE__ ('‚  ‚¢' =~ /‚ [\\s]‚¢/).\n";
     }
 }
 else {
-    print "not ok - 1 $^X $__FILE__ ('‚  ‚¢' =~ /‚ [\s]‚¢/).\n";
+    print "not ok - 1 $^X $__FILE__ ('‚  ‚¢' =~ /‚ [\\s]‚¢/).\n";
 }
 
 __END__

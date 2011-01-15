@@ -3,6 +3,8 @@ print "1..10\n";
 
 my $__FILE__ = __FILE__;
 
+local $^W = 0;
+
 $a = split;
 if ($a == 0) {
     print qq{ok - 1 \$a = split $^X $__FILE__\n};

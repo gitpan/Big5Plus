@@ -6,10 +6,10 @@ die "This file is not encoded in Big5Plus.\n" if q{‚ } ne "\x82\xa0";
 my $__FILE__ = __FILE__;
 
 use Ebig5plus;
-print "1..26\n";
+print "1..22\n";
 
 if ($^O !~ /\A (?: MSWin32 | NetWare | symbian | dos ) \z/oxms) {
-    for my $tno (1..26) {
+    for my $tno (1..22) {
         print "ok - $tno # SKIP $^X $0\n";
     }
     exit;
@@ -138,68 +138,39 @@ else {
     print "not ok - 17 Ebig5plus::c 'directory' == -c 'directory' $^X $__FILE__\n";
 }
 
-local $^W = 0;
-if (((Ebig5plus::t 'directory') ne '') == ((-t 'directory') ne '')) {
-    print "ok - 18 Ebig5plus::t 'directory' == -t 'directory' $^X $__FILE__\n";
-}
-else {
-    print "not ok - 18 Ebig5plus::t 'directory' == -t 'directory' $^X $__FILE__\n";
-}
-
 if (((Ebig5plus::u 'directory') ne '') == ((-u 'directory') ne '')) {
-    print "ok - 19 Ebig5plus::u 'directory' == -u 'directory' $^X $__FILE__\n";
+    print "ok - 18 Ebig5plus::u 'directory' == -u 'directory' $^X $__FILE__\n";
 }
 else {
-    print "not ok - 19 Ebig5plus::u 'directory' == -u 'directory' $^X $__FILE__\n";
+    print "not ok - 18 Ebig5plus::u 'directory' == -u 'directory' $^X $__FILE__\n";
 }
 
 if (((Ebig5plus::g 'directory') ne '') == ((-g 'directory') ne '')) {
-    print "ok - 20 Ebig5plus::g 'directory' == -g 'directory' $^X $__FILE__\n";
+    print "ok - 19 Ebig5plus::g 'directory' == -g 'directory' $^X $__FILE__\n";
 }
 else {
-    print "not ok - 20 Ebig5plus::g 'directory' == -g 'directory' $^X $__FILE__\n";
-}
-
-if (((Ebig5plus::k 'directory') ne '') == ((-k 'directory') ne '')) {
-    print "ok - 21 Ebig5plus::k 'directory' == -k 'directory' $^X $__FILE__\n";
-}
-else {
-    print "not ok - 21 Ebig5plus::k 'directory' == -k 'directory' $^X $__FILE__\n";
-}
-
-if (((Ebig5plus::T 'directory') ne '') == ((-T 'directory') ne '')) {
-    print "ok - 22 Ebig5plus::T 'directory' == -T 'directory' $^X $__FILE__\n";
-}
-else {
-    print "not ok - 22 Ebig5plus::T 'directory' == -T 'directory' $^X $__FILE__\n";
-}
-
-if (((Ebig5plus::B 'directory') ne '') == ((-B 'directory') ne '')) {
-    print "ok - 23 Ebig5plus::B 'directory' == -B 'directory' $^X $__FILE__\n";
-}
-else {
-    print "not ok - 23 Ebig5plus::B 'directory' == -B 'directory' $^X $__FILE__\n";
+    print "not ok - 19 Ebig5plus::g 'directory' == -g 'directory' $^X $__FILE__\n";
 }
 
 if (((Ebig5plus::M 'directory') ne '') == ((-M 'directory') ne '')) {
-    print "ok - 24 Ebig5plus::M 'directory' == -M 'directory' $^X $__FILE__\n";
+    print "ok - 20 Ebig5plus::M 'directory' == -M 'directory' $^X $__FILE__\n";
 }
 else {
-    print "not ok - 24 Ebig5plus::M 'directory' == -M 'directory' $^X $__FILE__\n";
+    print "not ok - 20 Ebig5plus::M 'directory' == -M 'directory' $^X $__FILE__\n";
 }
 
 if (((Ebig5plus::A 'directory') ne '') == ((-A 'directory') ne '')) {
-    print "ok - 25 Ebig5plus::A 'directory' == -A 'directory' $^X $__FILE__\n";
+    print "ok - 21 Ebig5plus::A 'directory' == -A 'directory' $^X $__FILE__\n";
 }
 else {
-    print "not ok - 25 Ebig5plus::A 'directory' == -A 'directory' $^X $__FILE__\n";
+    print "not ok - 21 Ebig5plus::A 'directory' == -A 'directory' $^X $__FILE__\n";
 }
 
 if (((Ebig5plus::C 'directory') ne '') == ((-C 'directory') ne '')) {
-    print "ok - 26 Ebig5plus::C 'directory' == -C 'directory' $^X $__FILE__\n";
+    print "ok - 22 Ebig5plus::C 'directory' == -C 'directory' $^X $__FILE__\n";
 }
 else {
-    print "not ok - 26 Ebig5plus::C 'directory' == -C 'directory' $^X $__FILE__\n";
+    print "not ok - 22 Ebig5plus::C 'directory' == -C 'directory' $^X $__FILE__\n";
 }
 
 closedir(DIR);

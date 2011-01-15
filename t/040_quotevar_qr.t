@@ -23,6 +23,7 @@ else {
 }
 
 $b = 1;
+$a[1] = '';
 if ($a[$b] =~ qr/^\Q$a[$b]\E$/) {
     print qq#ok - 3 \$a[\$b] =~ qr/^\\Q\$a[\$b]\\E\$/ $^X $__FILE__\n#;
 }

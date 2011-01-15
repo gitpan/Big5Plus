@@ -33,7 +33,7 @@ if ($@) {
 }
 else {
     my $cwd2 = `chdir`;
-    if ($cmd1 ne $cwd2) {
+    if ($cwd1 ne $cwd2) {
         print "ok - 1 chdir (1/2) $^X $__FILE__\n";
         chdir('..');
     }

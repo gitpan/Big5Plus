@@ -44,7 +44,7 @@ print FILE "A" x 3;
 close(FILE);
 
 open(FILE,'open.txt');
-my $file = join('',<FILE>);
+$file = join('',<FILE>);
 close(FILE);
 
 if ($file eq ('A' x 3)) {
@@ -60,9 +60,9 @@ open(my $fh3,'>open.txt');
 print $fh3 "A" x 4;
 close($fh3);
 
-open(my $fh3,'open.txt');
-my $file = join('',<$fh3>);
-close($fh3);
+open(my $fh4,'open.txt');
+$file = join('',<$fh4>);
+close($fh4);
 
 if ($file eq ('A' x 4)) {
     print "ok - 4 open(\$fh,'open.txt'); $^X $__FILE__\n";
@@ -78,7 +78,7 @@ print FILE "A" x 5;
 close(FILE);
 
 open(FILE,'open.txt');
-my $file = join('',<FILE>);
+$file = join('',<FILE>);
 close(FILE);
 
 if ($file eq ('A' x 5)) {
@@ -95,7 +95,7 @@ print FILE "A" x 6;
 close(FILE);
 
 open(FILE,'open.txt');
-my $file = join('',<FILE>);
+$file = join('',<FILE>);
 close(FILE);
 
 if ($file eq ('A' x (5+6))) {
@@ -108,7 +108,7 @@ else {
 # 引数 3 個 <, ベアワード
 
 open(FILE,'<','open.txt');
-my $file = join('',<FILE>);
+$file = join('',<FILE>);
 close(FILE);
 
 if ($file eq ('A' x (5+6))) {
@@ -412,9 +412,9 @@ else {
     print $fh "A" x 20;
     close($fh);
 
-    open(my $fh,'open.txt');
-    my $file = join('',<$fh>);
-    close($fh);
+    open(my $fh2,'open.txt');
+    my $file = join('',<$fh2>);
+    close($fh2);
 
     if ($file eq ('A' x 20)) {
         print "ok - 20 open(my \$fh,'>','open.txt'); $^X $__FILE__\n";
@@ -434,9 +434,9 @@ else {
     print $fh "A" x 21;
     close($fh);
 
-    open(my $fh,'open.txt');
-    my $file = join('',<$fh>);
-    close($fh);
+    open(my $fh2,'open.txt');
+    my $file = join('',<$fh2>);
+    close($fh2);
 
     if ($file eq ('A' x (20+21))) {
         print "ok - 21 open(my \$fh,'>>','open.txt'); $^X $__FILE__\n";
@@ -475,10 +475,10 @@ else {
     print $fh "\n";
     close($fh);
 
-    open(my $fh,'open.txt');
-    binmode($fh);
-    my $file = join('',<$fh>);
-    close($fh);
+    open(my $fh2,'open.txt');
+    binmode($fh2);
+    my $file = join('',<$fh2>);
+    close($fh2);
 
     if ($file eq ('A' x 23)."\r\n") {
         print "ok - 23 open(my \$fh,'>:crlf','open.txt'); $^X $__FILE__\n";
@@ -499,10 +499,10 @@ else {
     print $fh "\n";
     close($fh);
 
-    open(my $fh,'open.txt');
-    binmode($fh);
-    my $file = join('',<$fh>);
-    close($fh);
+    open(my $fh2,'open.txt');
+    binmode($fh2);
+    my $file = join('',<$fh2>);
+    close($fh2);
 
     if ($file eq ('A' x 23)."\r\n".('A' x 24)."\r\n") {
         print "ok - 24 open(my \$fh,'>>:crlf','open.txt'); $^X $__FILE__\n";
@@ -541,10 +541,10 @@ else {
     print $fh "\n";
     close($fh);
 
-    open(my $fh,'open.txt');
-    binmode($fh);
-    my $file = join('',<$fh>);
-    close($fh);
+    open(my $fh2,'open.txt');
+    binmode($fh2);
+    my $file = join('',<$fh2>);
+    close($fh2);
 
     if ($^O =~ /\A (?: MSWin32 | NetWare | symbian | dos ) \z/oxms) {
         if ($file eq ('A' x 26)."\r\n") {
@@ -575,10 +575,10 @@ else {
     print $fh "\n";
     close($fh);
 
-    open(my $fh,'open.txt');
-    binmode($fh);
-    my $file = join('',<$fh>);
-    close($fh);
+    open(my $fh2,'open.txt');
+    binmode($fh2);
+    my $file = join('',<$fh2>);
+    close($fh2);
 
     if ($^O =~ /\A (?: MSWin32 | NetWare | symbian | dos ) \z/oxms) {
         if ($file eq ('A' x 26)."\r\n".('A' x 27)."\r\n") {
@@ -627,10 +627,10 @@ else {
     print $fh "\n";
     close($fh);
 
-    open(my $fh,'open.txt');
-    binmode($fh);
-    my $file = join('',<$fh>);
-    close($fh);
+    open(my $fh2,'open.txt');
+    binmode($fh2);
+    my $file = join('',<$fh2>);
+    close($fh2);
 
     if ($file eq ('A' x 29)."\r\n") {
         print "ok - 29 open(my \$fh,'>:crlf:encoding(big5)','open.txt'); $^X $__FILE__\n";
@@ -651,10 +651,10 @@ else {
     print $fh "\n";
     close($fh);
 
-    open(my $fh,'open.txt');
-    binmode($fh);
-    my $file = join('',<$fh>);
-    close($fh);
+    open(my $fh2,'open.txt');
+    binmode($fh2);
+    my $file = join('',<$fh2>);
+    close($fh2);
 
     if ($file eq ('A' x 29)."\r\n".('A' x 30)."\r\n") {
         print "ok - 30 open(my \$fh,'>>:crlf:encoding(big5)','open.txt'); $^X $__FILE__\n";
@@ -693,10 +693,10 @@ else {
     print $fh "\n";
     close($fh);
 
-    open(my $fh,'open.txt');
-    binmode($fh);
-    my $file = join('',<$fh>);
-    close($fh);
+    open(my $fh2,'open.txt');
+    binmode($fh2);
+    my $file = join('',<$fh2>);
+    close($fh2);
 
     if ($file eq ('A' x 32)."\n") {
         print "ok - 32 open(my \$fh,'>:raw','open.txt'); $^X $__FILE__\n";
@@ -717,10 +717,10 @@ else {
     print $fh "\n";
     close($fh);
 
-    open(my $fh,'open.txt');
-    binmode($fh);
-    my $file = join('',<$fh>);
-    close($fh);
+    open(my $fh2,'open.txt');
+    binmode($fh2);
+    my $file = join('',<$fh2>);
+    close($fh2);
 
     if ($file eq ('A' x 32)."\n".('A' x 33)."\n") {
         print "ok - 33 open(my \$fh,'>>:raw','open.txt'); $^X $__FILE__\n";

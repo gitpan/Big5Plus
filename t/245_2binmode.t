@@ -62,10 +62,10 @@ else {
 
 # 引数 2 個 :raw, ファイルハンドルが格納された変数
 
-open(my $fh,'>binmode.txt');
-binmode($fh,':raw');
-print $fh "\n" x 5;
-close($fh);
+open(my $fh2,'>binmode.txt');
+binmode($fh2,':raw');
+print $fh2 "\n" x 5;
+close($fh2);
 
 if (-s 'binmode.txt' == 5) {
     print "ok - 5 binmode(\$fh,':raw'); $^X $__FILE__\n";

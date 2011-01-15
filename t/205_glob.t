@@ -1,8 +1,6 @@
 # This file is encoded in Big5Plus.
 die "This file is not encoded in Big5Plus.\n" if q{‚ } ne "\x82\xa0";
 
-my $__FILE__ = __FILE__;
-
 use Big5Plus;
 print "1..1\n";
 

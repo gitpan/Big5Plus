@@ -6,11 +6,11 @@ die "This file is not encoded in Big5Plus.\n" if q{あ} ne "\x82\xa0";
 my $__FILE__ = __FILE__;
 
 use Big5Plus;
-print "1..52\n";
+print "1..51\n";
 
 my $chcp = `chcp`;
 if ($^O !~ /\A (?: MSWin32 | NetWare | symbian | dos ) \z/oxms or $chcp !~ /932|950/oxms) {
-    for my $tno (1..52) {
+    for my $tno (1..51) {
         print "ok - $tno # SKIP $^X $0\n";
     }
     exit;
@@ -262,130 +262,123 @@ else {
     print "not ok - 34 -c FILE1 == -c FILE2 $^X $__FILE__\n";
 }
 
-if (((-t 'file') ne '') == ((-t 'F機能') ne '')) {
-    print "ok - 35 -t 'file' == -t 'F機能' $^X $__FILE__\n";
-}
-else {
-    print "not ok - 35 -t 'file' == -t 'F機能' $^X $__FILE__\n";
-}
-
 if (((-t FILE1) ne '') == ((-t FILE2) ne '')) {
-    print "ok - 36 -t FILE1 == -t FILE2 $^X $__FILE__\n";
+    print "ok - 35 -t FILE1 == -t FILE2 $^X $__FILE__\n";
 }
 else {
-    print "not ok - 36 -t FILE1 == -t FILE2 $^X $__FILE__\n";
+    print "not ok - 35 -t FILE1 == -t FILE2 $^X $__FILE__\n";
 }
 
 if (((-u 'file') ne '') == ((-u 'F機能') ne '')) {
-    print "ok - 37 -u 'file' == -u 'F機能' $^X $__FILE__\n";
+    print "ok - 36 -u 'file' == -u 'F機能' $^X $__FILE__\n";
 }
 else {
-    print "not ok - 37 -u 'file' == -u 'F機能' $^X $__FILE__\n";
+    print "not ok - 36 -u 'file' == -u 'F機能' $^X $__FILE__\n";
 }
 
 if (((-u FILE1) ne '') == ((-u FILE2) ne '')) {
-    print "ok - 38 -u FILE1 == -u FILE2 $^X $__FILE__\n";
+    print "ok - 37 -u FILE1 == -u FILE2 $^X $__FILE__\n";
 }
 else {
-    print "not ok - 38 -u FILE1 == -u FILE2 $^X $__FILE__\n";
+    print "not ok - 37 -u FILE1 == -u FILE2 $^X $__FILE__\n";
 }
 
 if (((-g 'file') ne '') == ((-g 'F機能') ne '')) {
-    print "ok - 39 -g 'file' == -g 'F機能' $^X $__FILE__\n";
+    print "ok - 38 -g 'file' == -g 'F機能' $^X $__FILE__\n";
 }
 else {
-    print "not ok - 39 -g 'file' == -g 'F機能' $^X $__FILE__\n";
+    print "not ok - 38 -g 'file' == -g 'F機能' $^X $__FILE__\n";
 }
 
 if (((-g FILE1) ne '') == ((-g FILE2) ne '')) {
-    print "ok - 40 -g FILE1 == -g FILE2 $^X $__FILE__\n";
+    print "ok - 39 -g FILE1 == -g FILE2 $^X $__FILE__\n";
 }
 else {
-    print "not ok - 40 -g FILE1 == -g FILE2 $^X $__FILE__\n";
+    print "not ok - 39 -g FILE1 == -g FILE2 $^X $__FILE__\n";
 }
 
 if (((-k 'file') ne '') == ((-k 'F機能') ne '')) {
-    print "ok - 41 -k 'file' == -k 'F機能' $^X $__FILE__\n";
+    print "ok - 40 -k 'file' == -k 'F機能' $^X $__FILE__\n";
 }
 else {
-    print "not ok - 41 -k 'file' == -k 'F機能' $^X $__FILE__\n";
+    print "not ok - 40 -k 'file' == -k 'F機能' $^X $__FILE__\n";
 }
 
 if (((-k FILE1) ne '') == ((-k FILE2) ne '')) {
-    print "ok - 42 -k FILE1 == -k FILE2 $^X $__FILE__\n";
+    print "ok - 41 -k FILE1 == -k FILE2 $^X $__FILE__\n";
 }
 else {
-    print "not ok - 42 -k FILE1 == -k FILE2 $^X $__FILE__\n";
+    print "not ok - 41 -k FILE1 == -k FILE2 $^X $__FILE__\n";
 }
 
 if (((-T 'file') ne '') == ((-T 'F機能') ne '')) {
-    print "ok - 43 -T 'file' == -T 'F機能' $^X $__FILE__\n";
+    print "ok - 42 -T 'file' == -T 'F機能' $^X $__FILE__\n";
 }
 else {
-    print "not ok - 43 -T 'file' == -T 'F機能' $^X $__FILE__\n";
+    print "not ok - 42 -T 'file' == -T 'F機能' $^X $__FILE__\n";
 }
 
 if (((-T FILE1) ne '') == ((-T FILE2) ne '')) {
-    print "ok - 44 -T FILE1 == -T FILE2 $^X $__FILE__\n";
+    print "ok - 43 -T FILE1 == -T FILE2 $^X $__FILE__\n";
 }
 else {
-    print "not ok - 44 -T FILE1 == -T FILE2 $^X $__FILE__\n";
+    print "not ok - 43 -T FILE1 == -T FILE2 $^X $__FILE__\n";
 }
 
 if (((-B 'file') ne '') == ((-B 'F機能') ne '')) {
-    print "ok - 45 -B 'file' == -B 'F機能' $^X $__FILE__\n";
+    print "ok - 44 -B 'file' == -B 'F機能' $^X $__FILE__\n";
 }
 else {
-    print "not ok - 45 -B 'file' == -B 'F機能' $^X $__FILE__\n";
+    print "not ok - 44 -B 'file' == -B 'F機能' $^X $__FILE__\n";
 }
 
 if (((-B FILE1) ne '') == ((-B FILE2) ne '')) {
-    print "ok - 46 -B FILE1 == -B FILE2 $^X $__FILE__\n";
+    print "ok - 45 -B FILE1 == -B FILE2 $^X $__FILE__\n";
 }
 else {
-    print "not ok - 46 -B FILE1 == -B FILE2 $^X $__FILE__\n";
+    print "not ok - 45 -B FILE1 == -B FILE2 $^X $__FILE__\n";
 }
 
 if (((-M 'file') ne '') == ((-M 'F機能') ne '')) {
-    print "ok - 47 -M 'file' == -M 'F機能' $^X $__FILE__\n";
+    print "ok - 46 -M 'file' == -M 'F機能' $^X $__FILE__\n";
 }
 else {
-    print "not ok - 47 -M 'file' == -M 'F機能' $^X $__FILE__\n";
+    print "not ok - 46 -M 'file' == -M 'F機能' $^X $__FILE__\n";
 }
 
 if (((-M FILE1) ne '') == ((-M FILE2) ne '')) {
-    print "ok - 48 -M FILE1 == -M FILE2 $^X $__FILE__\n";
+    print "ok - 47 -M FILE1 == -M FILE2 $^X $__FILE__\n";
 }
 else {
-    print "not ok - 48 -M FILE1 == -M FILE2 $^X $__FILE__\n";
+    print "not ok - 47 -M FILE1 == -M FILE2 $^X $__FILE__\n";
 }
 
 if (((-A 'file') ne '') == ((-A 'F機能') ne '')) {
-    print "ok - 49 -A 'file' == -A 'F機能' $^X $__FILE__\n";
+    print "ok - 48 -A 'file' == -A 'F機能' $^X $__FILE__\n";
 }
 else {
-    print "not ok - 49 -A 'file' == -A 'F機能' $^X $__FILE__\n";
+    print "not ok - 48 -A 'file' == -A 'F機能' $^X $__FILE__\n";
 }
 
 if (((-A FILE1) ne '') == ((-A FILE2) ne '')) {
-    print "ok - 50 -A FILE1 == -A FILE2 $^X $__FILE__\n";
+    print "ok - 49 -A FILE1 == -A FILE2 $^X $__FILE__\n";
 }
 else {
-    print "not ok - 50 -A FILE1 == -A FILE2 $^X $__FILE__\n";
+    print "not ok - 49 -A FILE1 == -A FILE2 $^X $__FILE__\n";
 }
 
 if (((-C 'file') ne '') == ((-C 'F機能') ne '')) {
-    print "ok - 51 -C 'file' == -C 'F機能' $^X $__FILE__\n";
+    print "ok - 50 -C 'file' == -C 'F機能' $^X $__FILE__\n";
 }
 else {
-    print "not ok - 51 -C 'file' == -C 'F機能' $^X $__FILE__\n";
+    print "not ok - 50 -C 'file' == -C 'F機能' $^X $__FILE__\n";
 }
 
 if (((-C FILE1) ne '') == ((-C FILE2) ne '')) {
-    print "ok - 52 -C FILE1 == -C FILE2 $^X $__FILE__\n";
+    print "ok - 51 -C FILE1 == -C FILE2 $^X $__FILE__\n";
 }
 else {
-    print "not ok - 52 -C FILE1 == -C FILE2 $^X $__FILE__\n";
+    print "not ok - 51 -C FILE1 == -C FILE2 $^X $__FILE__\n";
 }
 
 close(FILE1);

@@ -7,10 +7,10 @@ print "1..1\n";
 my $__FILE__ = __FILE__;
 
 if ('‚  ‚¢' =~ /(‚ \S‚¢)/) {
-    print "not ok - 1 $^X $__FILE__ not ('‚  ‚¢' =~ /‚ \S‚¢/).\n";
+    print "not ok - 1 $^X $__FILE__ not ('‚  ‚¢' =~ /‚ \\S‚¢/).\n";
 }
 else {
-    print "ok - 1 $^X $__FILE__ not ('‚  ‚¢' =~ /‚ \S‚¢/).\n";
+    print "ok - 1 $^X $__FILE__ not ('‚  ‚¢' =~ /‚ \\S‚¢/).\n";
 }
 
 __END__

@@ -8,7 +8,7 @@ my $__FILE__ = __FILE__;
 
 $a = "アソソ";
 if ($a !~ s/(イ.)//) {
-    print qq{ok - 1 "アソソ" !~ s/(イ.)// \$1=($1) $^X $__FILE__\n};
+    print qq{ok - 1 "アソソ" !~ s/(イ.)// \$1=() $^X $__FILE__\n};
 }
 else {
     print qq{not ok - 1 "アソソ" !~ s/(イ.)// \$1=($1) $^X $__FILE__\n};

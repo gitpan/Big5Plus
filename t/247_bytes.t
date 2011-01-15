@@ -12,7 +12,7 @@ use bytes;
 
 # bytes::chr()
 
-eval { bytes::chr(65); };
+my $eval = eval { bytes::chr(65); };
 if (not $@) {
     print "ok - 1 eval { bytes::chr(65); } $^X $__FILE__\n";
     if (bytes::chr(65) eq 'A') {
@@ -29,7 +29,7 @@ else {
 
 # bytes::index()
 
-eval { bytes::index('ABCDCDCDEF','CD'); };
+$eval = eval { bytes::index('ABCDCDCDEF','CD'); };
 if (not $@) {
     print "ok - 3 eval { bytes::index('ABCDCDCDEF','CD'); } $^X $__FILE__\n";
     if (bytes::index('ABCDCDCDEF','CD') == 2) {
@@ -46,7 +46,7 @@ else {
 
 # bytes::length()
 
-eval { bytes::length('AAA'); };
+$eval = eval { bytes::length('AAA'); };
 if (not $@) {
     print "ok - 5 eval { bytes::length('AAA'); } $^X $__FILE__\n";
     if (bytes::length('AAA') == 3) {
@@ -63,7 +63,7 @@ else {
 
 # bytes::ord()
 
-eval { bytes::ord('ABC'); };
+$eval = eval { bytes::ord('ABC'); };
 if (not $@) {
     print "ok - 7 eval { bytes::ord('ABC'); } $^X $__FILE__\n";
     if (bytes::ord('ABC') == 65) {
@@ -80,7 +80,7 @@ else {
 
 # bytes::rindex()
 
-eval { bytes::rindex('ABCDCDCDEF','CD'); };
+$eval = eval { bytes::rindex('ABCDCDCDEF','CD'); };
 if (not $@) {
     print "ok - 9 eval { bytes::rindex('ABCDCDCDEF','CD'); } $^X $__FILE__\n";
     if (bytes::rindex('ABCDCDCDEF','CD') == 6) {
@@ -97,7 +97,7 @@ else {
 
 # bytes::substr()
 
-eval { bytes::substr('ABCDEF',3,2); };
+$eval = eval { bytes::substr('ABCDEF',3,2); };
 if (not $@) {
     print "ok - 11 eval { bytes::substr('ABCDEF',3,2); } $^X $__FILE__\n";
     if (bytes::substr('ABCDEF',3,2) eq 'DE') {

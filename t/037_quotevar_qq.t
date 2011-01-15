@@ -23,6 +23,7 @@ else {
 }
 
 $b = 1;
+$a[1] = '';
 if ("$a[$b]" eq $a[$b]) {
     print qq/ok - 3 "\$a[\$b]" eq \$a[\$b] $^X $__FILE__\n/;
 }
