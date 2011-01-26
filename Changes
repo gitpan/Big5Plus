@@ -1,5 +1,9 @@
 Revision history for this software.
 
+0.71  2011/01/26 00:00:00
+	- support @homepage environment of @nifty. (Debugging ended thanks to valuable cooperation of jscripter)
+	; created by INABA Hitoshi
+
 0.70  2011/01/14 00:00:00
 	- remove multibyte anchoring of UTF2 and OldUTF8.
 	- propagate @INC by -I switch from script.pl to script.pl.e.

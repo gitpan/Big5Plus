@@ -18,7 +18,7 @@ use strict qw(subs vars);
 # (and so on)
 
 BEGIN { eval q{ use vars qw($VERSION) } }
-$VERSION = sprintf '%d.%02d', q$Revision: 0.70 $ =~ m/(\d+)/xmsg;
+$VERSION = sprintf '%d.%02d', q$Revision: 0.71 $ =~ m/(\d+)/xmsg;
 
 BEGIN {
     my $PERL5LIB = __FILE__;
@@ -128,14 +128,10 @@ BEGIN {
 # in Chapter 29: Functions
 # of ISBN 0-596-00027-8 Programming Perl Third Edition.
 
-unless (eval q{ use Fcntl qw(:flock); 1 }) {
-    eval q{
-        sub LOCK_SH {1}
-        sub LOCK_EX {2}
-        sub LOCK_UN {8}
-        sub LOCK_NB {4}
-    };
-}
+sub LOCK_SH() {1}
+sub LOCK_EX() {2}
+sub LOCK_UN() {8}
+sub LOCK_NB() {4}
 
 # instead of Carp.pm
 sub carp(@);
